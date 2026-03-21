@@ -1,0 +1,944 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SGF+ NPL Monitor</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@300;400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --c0:#0d1117;--c1:#161b27;--c2:#1c2333;--c3:#242e42;
+  --hi:#ef4444;--mi:#f59e0b;--lo:#22c55e;
+  --cyan:#38bdf8;--text1:#e2e8f0;--text2:#8892a4;--text3:#4a5568;
+  --border:rgba(255,255,255,0.07);
+}
+html,body{height:100%;overflow:hidden;font-family:'IBM Plex Sans Thai',sans-serif;background:var(--c0);color:var(--text1);font-size:13px}
+#app{display:grid;grid-template-rows:52px 1fr;grid-template-columns:260px 1fr 280px;grid-template-areas:"hd hd hd""lp mp rp";height:100vh}
+
+/* HEADER */
+#hd{grid-area:hd;background:var(--c1);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 16px;gap:0}
+.logo{font-family:'IBM Plex Mono',monospace;font-size:15px;font-weight:500;color:var(--cyan);letter-spacing:2px;padding-right:18px;border-right:1px solid var(--border);white-space:nowrap;flex-shrink:0}
+.logo b{color:var(--hi)}
+.kpis{display:flex;flex:1;justify-content:center}
+.kpi{display:flex;flex-direction:column;align-items:center;padding:0 14px;border-right:1px solid var(--border)}
+.kpi:first-child{border-left:1px solid var(--border)}
+.kv{font-family:'IBM Plex Mono',monospace;font-size:14px;font-weight:500}
+.kl{font-size:10px;color:var(--text3);letter-spacing:.5px;margin-top:1px}
+#clock{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--text3);margin-left:10px;white-space:nowrap}
+.live{width:7px;height:7px;border-radius:50%;background:var(--lo);animation:pulse 1.8s ease-in-out infinite;margin-right:8px;flex-shrink:0}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+
+/* PANELS */
+#lp{grid-area:lp;background:var(--c1);border-right:1px solid var(--border);overflow-y:auto;display:flex;flex-direction:column}
+#mp{grid-area:mp;position:relative}
+#map{width:100%;height:100%}
+#rp{grid-area:rp;background:var(--c1);border-left:1px solid var(--border);overflow-y:auto;display:flex;flex-direction:column}
+#lp::-webkit-scrollbar,#rp::-webkit-scrollbar{width:3px}
+#lp::-webkit-scrollbar-thumb,#rp::-webkit-scrollbar-thumb{background:var(--c3)}
+
+/* MAP */
+.leaflet-container{background:#1a2235!important}
+.leaflet-tile-pane{filter:brightness(.72) saturate(.8) contrast(1.05)}
+.leaflet-popup-content-wrapper{background:rgba(13,17,23,.97)!important;border:1px solid rgba(255,255,255,.12)!important;border-radius:10px!important;box-shadow:0 4px 24px rgba(0,0,0,.6)!important;color:var(--text1)!important;font-family:'IBM Plex Sans Thai',sans-serif!important;padding:0!important}
+.leaflet-popup-content{margin:0!important}
+.leaflet-popup-tip{background:rgba(13,17,23,.97)!important}
+.leaflet-popup-close-button{color:var(--text2)!important;top:8px!important;right:10px!important}
+.leaflet-control-attribution{display:none!important}
+.leaflet-control-zoom a{background:rgba(13,17,23,.9)!important;border-color:var(--border)!important;color:var(--cyan)!important}
+#map-tools{position:absolute;top:10px;left:10px;z-index:999;display:flex;gap:5px;flex-wrap:wrap}
+.mtb{padding:4px 11px;background:rgba(13,17,23,.92);border:1px solid var(--border);border-radius:5px;color:var(--text2);font-size:11px;font-family:'IBM Plex Mono',monospace;cursor:pointer;transition:all .15s}
+.mtb:hover,.mtb.on{border-color:var(--cyan);color:var(--cyan);background:rgba(56,189,248,.08)}
+#map-legend{position:absolute;bottom:10px;left:10px;z-index:999;background:rgba(13,17,23,.92);border:1px solid var(--border);border-radius:8px;padding:10px 13px}
+.leg-row{display:flex;align-items:center;gap:7px;font-size:11px;color:var(--text2);margin-bottom:3px}
+.leg-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0}
+
+/* Popup */
+.pu-wrap{padding:12px 14px;min-width:210px}
+.pu-head{display:flex;align-items:center;gap:8px;margin-bottom:8px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+.pu-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+.pu-name{font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:500;flex:1}
+.pu-row{display:flex;justify-content:space-between;gap:14px;font-size:11px;color:var(--text2);padding:3px 0;border-bottom:1px solid rgba(255,255,255,.04)}
+.pu-val{font-family:'IBM Plex Mono',monospace;color:var(--text1);text-align:right}
+.pu-bar{height:5px;border-radius:3px;margin-top:7px;background:rgba(255,255,255,.07);overflow:hidden}
+.pu-fill{height:100%;border-radius:3px}
+
+/* SHARED */
+.sec{padding:10px 12px;border-bottom:1px solid var(--border)}
+.sec-title{font-size:10px;font-weight:500;letter-spacing:1.5px;color:var(--text3);text-transform:uppercase;margin-bottom:8px}
+
+/* Filters */
+.frow{display:flex;gap:5px;flex-wrap:wrap}
+.fb{padding:3px 9px;border-radius:4px;border:1px solid var(--border);background:transparent;color:var(--text2);font-size:11px;cursor:pointer;transition:all .15s;font-family:'IBM Plex Sans Thai',sans-serif}
+.fb:hover,.fb.on{border-color:var(--cyan);color:var(--cyan);background:rgba(56,189,248,.08)}
+.fb.h.on{border-color:var(--hi);color:var(--hi);background:rgba(239,68,68,.08)}
+.fb.m.on{border-color:var(--mi);color:var(--mi);background:rgba(245,158,11,.08)}
+.fb.l.on{border-color:var(--lo);color:var(--lo);background:rgba(34,197,94,.08)}
+
+/* Bars */
+.bar-row{margin-bottom:6px}
+.bar-label{display:flex;justify-content:space-between;font-size:11px;margin-bottom:2px}
+.bar-name{color:var(--text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:150px}
+.bar-val{font-family:'IBM Plex Mono',monospace;color:var(--text1);flex-shrink:0}
+.bar-track{height:5px;border-radius:3px;background:rgba(255,255,255,.06);overflow:hidden}
+.bar-fill{height:100%;border-radius:3px;transition:width .8s ease}
+
+/* Dealer rows */
+.dr{display:flex;align-items:center;gap:7px;padding:5px 4px;border-radius:5px;cursor:pointer;transition:background .15s}
+.dr:hover{background:var(--c3)}
+.dr-idx{width:18px;font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--text3);flex-shrink:0;text-align:right}
+.dr-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+.dr-info{flex:1;min-width:0}
+.dr-name{font-size:12px;color:var(--text1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dr-prov{font-size:10px;color:var(--text2)}
+.dr-npl{font-family:'IBM Plex Mono',monospace;font-size:11px;flex-shrink:0}
+.dr-pct{font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--text3);flex-shrink:0;width:36px;text-align:right}
+
+/* Region grid */
+.rg-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:5px}
+.rg-card{background:var(--c2);border-radius:6px;padding:7px 8px;border:1px solid var(--border);cursor:pointer;transition:border-color .15s}
+.rg-card:hover,.rg-card.on{border-color:rgba(56,189,248,.4)}
+.rg-name{font-size:10px;color:var(--text2);margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rg-val{font-family:'IBM Plex Mono',monospace;font-size:14px;font-weight:500}
+.rg-sub{font-size:10px;color:var(--text3);margin-top:1px}
+.rg-bar{height:3px;border-radius:2px;margin-top:5px;background:rgba(255,255,255,.06);overflow:hidden}
+.rg-fill{height:100%;border-radius:2px}
+
+/* Donut */
+.donut-wrap{display:flex;align-items:center;gap:12px}
+.donut-ring{width:60px;height:60px;flex-shrink:0;position:relative}
+.donut-ring svg{width:100%;height:100%;transform:rotate(-90deg)}
+.donut-ring circle{fill:none;stroke-width:6}
+.donut-track{stroke:rgba(255,255,255,.07)}
+.donut-lbl{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
+.donut-big{font-family:'IBM Plex Mono',monospace;font-size:13px;font-weight:500}
+.donut-info{flex:1;display:flex;flex-direction:column;gap:4px}
+.dleg{display:flex;justify-content:space-between;font-size:11px}
+
+/* Person cards */
+.pc{background:var(--c2);border-radius:7px;padding:9px 11px;border:1px solid var(--border);margin-bottom:5px;border-left:3px solid}
+.pc-head{display:flex;align-items:flex-start;gap:7px;margin-bottom:5px}
+.pc-rank{font-family:'IBM Plex Mono',monospace;font-size:16px;font-weight:500;color:var(--text3);flex-shrink:0;margin-top:1px}
+.pc-name{font-size:12px;font-weight:500;color:var(--text1)}
+.pc-sub{font-size:10px;color:var(--text2);margin-top:2px}
+.pc-loc{font-size:10px;color:var(--text3)}
+.pc-stats{display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px;margin-top:5px}
+.pc-s{background:rgba(0,0,0,.25);border-radius:4px;padding:4px 6px}
+.pc-sv{font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:500}
+.pc-sl{font-size:9px;color:var(--text3);margin-top:1px}
+
+/* Trend chart */
+#trend{display:flex;align-items:flex-end;gap:3px;height:52px}
+.tb{flex:1;border-radius:2px 2px 0 0;transition:height .5s;min-height:3px;opacity:.85}
+
+/* Scroll */
+.sc{overflow-y:auto}
+.sc::-webkit-scrollbar{width:2px}
+.sc::-webkit-scrollbar-thumb{background:var(--c3)}
+
+/* Loading overlay */
+#loading{position:fixed;inset:0;background:var(--c0);display:flex;align-items:center;justify-content:center;z-index:9999;flex-direction:column;gap:12px}
+.spin{width:32px;height:32px;border:2px solid var(--c3);border-top-color:var(--cyan);border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+#err-banner{position:fixed;bottom:12px;right:12px;background:rgba(239,68,68,.15);border:1px solid var(--hi);border-radius:8px;padding:10px 14px;font-size:12px;color:var(--hi);display:none;z-index:9998;max-width:320px}
+
+/* Edit modal */
+#edit-modal{position:fixed;inset:0;background:rgba(0,0,0,.78);z-index:10000;display:none;overflow-y:auto;padding:28px 16px}
+.em-wrap{max-width:740px;margin:0 auto;background:var(--c1);border:1px solid var(--border);border-radius:12px;overflow:hidden}
+.em-hd{padding:13px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.em-sec{padding:11px 18px;border-bottom:1px solid var(--border)}
+.em-lbl{font-size:9px;color:var(--text3);letter-spacing:1.2px;text-transform:uppercase;margin-bottom:5px}
+.em-sel{width:100%;background:var(--c2);border:1px solid var(--border);color:var(--text1);padding:8px 10px;border-radius:6px;font-size:13px;font-family:'IBM Plex Sans Thai',sans-serif;outline:none}
+.em-sel:focus,.em-inp:focus{border-color:rgba(56,189,248,.5);outline:none}
+.em-inp{background:var(--c0);border:1px solid var(--border);color:var(--text1);padding:5px 8px;border-radius:4px;font-family:'IBM Plex Mono',monospace;font-size:12px;width:100%;transition:border-color .15s}
+.em-row{padding:9px 0;border-bottom:1px solid rgba(255,255,255,.04);display:grid;grid-template-columns:1fr 80px 140px 90px;gap:10px;align-items:center}
+.em-row:last-child{border-bottom:none}
+.em-qbtn{padding:4px 8px;border-radius:4px;cursor:pointer;font-size:10px;border:1px solid;font-family:'IBM Plex Sans Thai',sans-serif;width:100%;margin-bottom:3px;transition:all .15s}
+.em-add{padding:11px 18px;background:var(--c2);border-top:1px solid var(--border)}
+.em-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:8px}
+.edit-btn{margin-left:12px;padding:4px 11px;background:rgba(56,189,248,.08);border:1px solid rgba(56,189,248,.3);color:var(--cyan);border-radius:5px;font-size:11px;cursor:pointer;font-family:'IBM Plex Mono',monospace;flex-shrink:0;transition:all .15s}
+.edit-btn:hover{background:rgba(56,189,248,.18);border-color:var(--cyan)}
+.coll-btn{margin-left:6px;padding:4px 11px;background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.35);color:var(--hi);border-radius:5px;font-size:11px;cursor:pointer;font-family:'IBM Plex Mono',monospace;flex-shrink:0;transition:all .15s}
+.coll-btn:hover{background:rgba(239,68,68,.18);border-color:var(--hi)}
+
+/* Early Warning */
+.ew-row{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:6px;margin-bottom:4px;cursor:pointer;transition:background .15s}
+.ew-row:hover{background:var(--c3)}
+.ew-bar{flex:1;height:4px;border-radius:2px;background:rgba(255,255,255,.06);overflow:hidden;margin-top:2px}
+.ew-fill{height:100%;border-radius:2px;transition:width .6s ease}
+.tier-badge{width:15px;height:15px;border-radius:3px;font-size:8px;font-weight:700;display:flex;align-items:center;justify-content:center;font-family:'IBM Plex Mono',monospace;flex-shrink:0;border:1px solid}
+
+/* Collection modal */
+#coll-modal{position:fixed;inset:0;background:rgba(0,0,0,.8);z-index:10000;display:none;overflow-y:auto;padding:28px 16px}
+.cm-wrap{max-width:800px;margin:0 auto;background:var(--c1);border:1px solid var(--border);border-radius:12px;overflow:hidden}
+.cm-hd{padding:13px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.cm-tabs{display:flex;gap:6px;padding:10px 18px;border-bottom:1px solid var(--border);background:var(--c2)}
+.cm-tab{padding:4px 12px;border-radius:4px;border:1px solid var(--border);color:var(--text2);font-size:11px;cursor:pointer;font-family:'IBM Plex Mono',monospace;transition:all .15s}
+.cm-tab.on{border-color:var(--cyan);color:var(--cyan);background:rgba(56,189,248,.08)}
+.cm-row{padding:10px 18px;border-bottom:1px solid rgba(255,255,255,.04);display:grid;grid-template-columns:36px 1fr 70px 130px 100px 88px;gap:10px;align-items:center}
+.cm-row:last-child{border-bottom:none}
+.cm-row:hover{background:rgba(255,255,255,.02)}
+.act-badge{padding:3px 7px;border-radius:3px;font-size:9px;font-weight:600;font-family:'IBM Plex Mono',monospace;border:1px solid;text-align:center;letter-spacing:.5px}
+.cm-score{font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--text3)}
+</style>
+</head>
+<body>
+<div id="loading"><div class="spin"></div><div style="font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--text2)">กำลังโหลดข้อมูล...</div></div>
+<div id="err-banner"></div>
+
+<div id="app">
+<header id="hd">
+  <div class="logo">SGF<b>+</b> NPL</div>
+  <div class="kpis">
+    <div class="kpi"><div class="kv" style="color:var(--hi)" id="hv-npl">—</div><div class="kl">NPL รวม</div></div>
+    <div class="kpi"><div class="kv" style="color:var(--hi)" id="hv-rate">—</div><div class="kl">NPL Rate</div></div>
+    <div class="kpi"><div class="kv" style="color:var(--hi)" id="hv-hi">—</div><div class="kl">High Risk</div></div>
+    <div class="kpi"><div class="kv" style="color:var(--mi)" id="hv-mi">—</div><div class="kl">Mid Risk</div></div>
+    <div class="kpi"><div class="kv" style="color:var(--lo)" id="hv-lo">—</div><div class="kl">Normal</div></div>
+    <div class="kpi"><div class="kv" style="color:var(--cyan)" id="hv-port">—</div><div class="kl">Port รวม</div></div>
+  </div>
+  <div class="live" id="live-dot"></div>
+  <div id="clock">--:--:--</div>
+  <button class="coll-btn" onclick="openCollection()">⚡ Collection Queue</button>
+  <button class="edit-btn" onclick="openEdit()">✎ แก้ไข NPL</button>
+</header>
+
+<!-- LEFT PANEL -->
+<aside id="lp">
+  <div class="sec">
+    <div class="sec-title">Risk Filter</div>
+    <div class="frow">
+      <button class="fb on" data-risk="" onclick="setRisk(this,'')">ทั้งหมด</button>
+      <button class="fb h"  data-risk="high" onclick="setRisk(this,'high')">🔴 สูง</button>
+      <button class="fb m"  data-risk="mid"  onclick="setRisk(this,'mid')">🟡 ระวัง</button>
+      <button class="fb l"  data-risk="low"  onclick="setRisk(this,'low')">🟢 ปกติ</button>
+    </div>
+  </div>
+  <div class="sec">
+    <div class="sec-title">⚡ Pre-NPL Early Warning</div>
+    <div id="early-warning"></div>
+  </div>
+  <div class="sec">
+    <div class="sec-title">NPL ตามภาค</div>
+    <div id="region-grid" class="rg-grid"></div>
+  </div>
+  <div class="sec">
+    <div class="sec-title">Top จังหวัด NPL</div>
+    <div id="prov-bars"></div>
+  </div>
+  <div class="sec" style="flex:1">
+    <div class="sec-title">Dealer List <span id="dl-cnt" style="color:var(--text2);font-size:11px;letter-spacing:0;text-transform:none"></span></div>
+    <div class="sc" id="dealer-list" style="max-height:300px"></div>
+  </div>
+</aside>
+
+<!-- MAP -->
+<main id="mp">
+  <div id="map"></div>
+  <div id="map-tools">
+    <button class="mtb on" id="btn-heat" onclick="setView('heat')">HEATMAP</button>
+    <button class="mtb" id="btn-dot"  onclick="setView('dot')">DEALERS</button>
+    <button class="mtb" id="btn-both" onclick="setView('both')">BOTH</button>
+  </div>
+  <div id="map-legend">
+    <div style="font-size:9px;color:var(--text3);letter-spacing:1px;text-transform:uppercase;margin-bottom:5px">NPL Risk Level</div>
+    <div class="leg-row"><div class="leg-dot" style="background:var(--hi)"></div>สูง (≥10%)</div>
+    <div class="leg-row"><div class="leg-dot" style="background:var(--mi)"></div>ระวัง (5–9.9%)</div>
+    <div class="leg-row"><div class="leg-dot" style="background:var(--lo)"></div>ปกติ (&lt;5%)</div>
+  </div>
+</main>
+
+<!-- RIGHT PANEL -->
+<aside id="rp">
+  <div class="sec">
+    <div class="sec-title">Portfolio Overview</div>
+    <div class="donut-wrap" id="donut-area"></div>
+  </div>
+  <div class="sec">
+    <div class="sec-title">NPL แยกประเภทสินเชื่อ</div>
+    <div id="type-bars"></div>
+  </div>
+  <div class="sec">
+    <div class="sec-title">🚨 Top NPL รายบุคคล</div>
+    <div class="sc" id="top-persons" style="max-height:300px"></div>
+  </div>
+  <div class="sec" style="flex:1">
+    <div class="sec-title">NPL Trend 12 เดือน</div>
+    <div id="trend"></div>
+    <div style="display:flex;justify-content:space-between;font-size:9px;color:var(--text3);margin-top:3px;font-family:'IBM Plex Mono',monospace" id="trend-labels"></div>
+  </div>
+</aside>
+</div>
+
+<!-- Collection Priority Modal -->
+<div id="coll-modal">
+  <div class="cm-wrap">
+    <div class="cm-hd">
+      <div style="display:flex;align-items:center;gap:10px">
+        <div style="font-family:'IBM Plex Mono',monospace;font-size:13px;color:var(--hi)">⚡ Collection Priority Queue</div>
+        <div id="coll-stats" style="font-size:10px;color:var(--text3)"></div>
+      </div>
+      <button onclick="closeCollection()" style="background:none;border:none;color:var(--text2);cursor:pointer;font-size:20px;line-height:1;padding:0 4px">×</button>
+    </div>
+    <div class="cm-tabs">
+      <button class="cm-tab on" onclick="setCollTab('all',this)">ทั้งหมด</button>
+      <button class="cm-tab" onclick="setCollTab('npl',this)">NPL (>90d)</button>
+      <button class="cm-tab" onclick="setCollTab('pre',this)">Pre-NPL (30–89d)</button>
+    </div>
+    <div style="padding:6px 18px;border-bottom:1px solid var(--border);background:var(--c2);display:grid;grid-template-columns:36px 1fr 70px 130px 100px 88px;gap:10px">
+      <div style="font-size:9px;color:var(--text3);letter-spacing:1px">#</div>
+      <div style="font-size:9px;color:var(--text3);letter-spacing:1px">ลูกค้า / Dealer</div>
+      <div style="font-size:9px;color:var(--text3);letter-spacing:1px">DPD</div>
+      <div style="font-size:9px;color:var(--text3);letter-spacing:1px">ค้างชำระ</div>
+      <div style="font-size:9px;color:var(--text3);letter-spacing:1px">Priority Score</div>
+      <div style="font-size:9px;color:var(--text3);letter-spacing:1px">Action</div>
+    </div>
+    <div id="coll-list" style="max-height:480px;overflow-y:auto"></div>
+    <div style="padding:10px 18px;border-top:1px solid var(--border);background:var(--c2);font-size:10px;color:var(--text3)">
+      Priority Score = DPD × ยอดค้าง (M฿) — สูงกว่า = ต้องเก็บก่อน
+    </div>
+  </div>
+</div>
+
+<!-- Edit Modal -->
+<div id="edit-modal">
+  <div class="em-wrap">
+    <div class="em-hd">
+      <div style="font-family:'IBM Plex Mono',monospace;font-size:13px;color:var(--cyan)">✎ แก้ไขข้อมูล NPL</div>
+      <div style="display:flex;align-items:center;gap:12px">
+        <div id="em-status" style="font-size:11px;color:var(--text3)"></div>
+        <button onclick="closeEdit()" style="background:none;border:none;color:var(--text2);cursor:pointer;font-size:20px;line-height:1;padding:0 4px">×</button>
+      </div>
+    </div>
+
+    <div class="em-sec">
+      <div class="em-lbl">เลือก Dealer</div>
+      <select id="edit-dealer-sel" class="em-sel" onchange="loadEditLoans()">
+        <option value="">— เลือก Dealer —</option>
+      </select>
+    </div>
+
+    <div id="edit-loans-wrap" style="max-height:380px;overflow-y:auto;padding:0 18px">
+      <div id="edit-loans"></div>
+    </div>
+
+    <div class="em-add">
+      <div class="em-lbl" style="margin-bottom:8px">+ เพิ่มสินเชื่อใหม่</div>
+      <div class="em-grid">
+        <div>
+          <div class="em-lbl">ชื่อลูกค้า</div>
+          <input id="new-customer" class="em-inp" type="text" placeholder="นายสมชาย ...">
+        </div>
+        <div>
+          <div class="em-lbl">วงเงินต้น (บาท)</div>
+          <input id="new-principal" class="em-inp" type="number" placeholder="1000000"
+            oninput="if(!document.getElementById('new-outstanding').value)document.getElementById('new-outstanding').value=this.value">
+        </div>
+        <div>
+          <div class="em-lbl">ค้างชำระ (บาท)</div>
+          <input id="new-outstanding" class="em-inp" type="number" placeholder="(= วงเงินต้น)">
+        </div>
+        <div>
+          <div class="em-lbl">ประเภทสินเชื่อ</div>
+          <select id="new-type" class="em-sel" style="padding:5px 8px;font-size:12px">
+            <option>เช่าซื้อ</option>
+            <option>Personal</option>
+            <option>Nano</option>
+          </select>
+        </div>
+        <div>
+          <div class="em-lbl">DPD (วัน)</div>
+          <input id="new-dpd" class="em-inp" type="number" value="0" min="0">
+        </div>
+        <div style="display:flex;align-items:flex-end">
+          <button onclick="addLoan()" style="width:100%;padding:6px 10px;background:rgba(56,189,248,.15);border:1px solid var(--cyan);color:var(--cyan);border-radius:4px;cursor:pointer;font-size:12px;font-family:'IBM Plex Sans Thai',sans-serif;transition:all .15s">
+            + เพิ่มสินเชื่อ
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.heat/0.2.0/leaflet-heat.js"></script>
+<script>
+// ══════════════════════════════════════════════════════
+// CONFIG — เปลี่ยน URL ให้ตรงกับ Railway ของคุณ
+// ══════════════════════════════════════════════════════
+const API = window.SGF_API_URL || '';
+const REFRESH_MS = 5 * 60 * 1000; // refresh ทุก 5 นาที
+
+// ══════════════════════════════════════════════════════
+// STATE
+// ══════════════════════════════════════════════════════
+let dealers = [], summary = {}, regions = [], provinces = [], topNpls = [], trend = [];
+let activeRisk = '', activeRegion = '';
+let viewMode = 'heat';
+let heatLayer = null;
+let markersGroup = null;
+const mRefs = {};
+
+// ══════════════════════════════════════════════════════
+// HELPERS
+// ══════════════════════════════════════════════════════
+const fmt = (v, dec=2) => v==null?'—': '฿'+(v/1e6).toFixed(dec)+'M';
+const fmtK = v => v==null?'—':'฿'+(v>=1e6?(v/1e6).toFixed(1)+'M':(v/1e3).toFixed(0)+'K');
+const riskCol = r => r==='high'?'#ef4444':r==='mid'?'#f59e0b':'#22c55e';
+
+async function apiFetch(path) {
+  const res = await fetch(API + path);
+  if (!res.ok) throw new Error(`${path} → ${res.status}`);
+  return res.json();
+}
+
+function showErr(msg) {
+  const b = document.getElementById('err-banner');
+  b.textContent = '⚠ ' + msg;
+  b.style.display = 'block';
+  setTimeout(() => b.style.display = 'none', 5000);
+}
+
+// ══════════════════════════════════════════════════════
+// LOAD ALL DATA
+// ══════════════════════════════════════════════════════
+async function loadAll() {
+  try {
+    [summary, dealers, regions, provinces, topNpls, trend] = await Promise.all([
+      apiFetch('/api/summary'),
+      apiFetch(`/api/dealers?risk=${activeRisk}&region=${activeRegion}`),
+      apiFetch('/api/regions'),
+      apiFetch(`/api/provinces?region=${activeRegion}`),
+      apiFetch('/api/top-npls?limit=8'),
+      apiFetch('/api/trend?months=12'),
+    ]);
+    render();
+    document.getElementById('loading').style.display = 'none';
+    document.getElementById('live-dot').style.background = '#22c55e';
+  } catch(e) {
+    showErr('API ไม่ตอบสนอง: ' + e.message);
+    document.getElementById('loading').style.display = 'none';
+    document.getElementById('live-dot').style.background = '#ef4444';
+  }
+}
+
+async function reloadDealers() {
+  try {
+    dealers = await apiFetch(`/api/dealers?risk=${activeRisk}&region=${activeRegion}`);
+    provinces = await apiFetch(`/api/provinces?region=${activeRegion}`);
+    buildMarkers(); buildHeat();
+    renderDealerList(); renderProvBars();
+  } catch(e) { showErr(e.message); }
+}
+
+// ══════════════════════════════════════════════════════
+// MAP
+// ══════════════════════════════════════════════════════
+const map = L.map('map', {center:[13.0,101.5],zoom:6,zoomControl:true,attributionControl:false});
+L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',{maxZoom:18,subdomains:'abcd'}).addTo(map);
+markersGroup = L.layerGroup().addTo(map);
+
+function dealerIcon(d) {
+  const col = riskCol(d.riskLevel);
+  const r = 6 + Math.min(d.nplAmt / 1200000, 9);
+  const sz = (r+8)*2, c = r+8;
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${sz}" height="${sz}">
+    <circle cx="${c}" cy="${c}" r="${r+5}" fill="${col}" fill-opacity=".15"/>
+    <circle cx="${c}" cy="${c}" r="${r}" fill="${col}" fill-opacity=".88"/>
+    <text x="${c}" y="${c+3.5}" text-anchor="middle" font-size="6.5" fill="#fff" font-family="monospace" font-weight="bold">${(d.nplAmt/1e6).toFixed(1)}</text>
+  </svg>`;
+  return L.divIcon({html:svg,className:'',iconSize:[sz,sz],iconAnchor:[c,c],popupAnchor:[0,-c]});
+}
+
+function popupHtml(d) {
+  const col = riskCol(d.riskLevel);
+  return `<div class="pu-wrap">
+    <div class="pu-head">
+      <div class="pu-dot" style="background:${col}"></div>
+      <div class="pu-name" style="color:${col}">${d.name}</div>
+    </div>
+    <div class="pu-row"><span>จังหวัด</span><span class="pu-val">${d.province}</span></div>
+    <div class="pu-row"><span>ภาค</span><span class="pu-val">${d.region}</span></div>
+    <div class="pu-row"><span>ประเภท</span><span class="pu-val">${d.loanType}</span></div>
+    <div class="pu-row"><span>Port</span><span class="pu-val">${fmt(d.port)}</span></div>
+    <div class="pu-row"><span>ยอด NPL</span><span class="pu-val" style="color:var(--hi)">${fmt(d.nplAmt)}</span></div>
+    <div class="pu-row"><span>NPL Rate</span><span class="pu-val" style="color:${col};font-size:13px">${d.nplRate}%</span></div>
+    <div class="pu-row" style="border:none"><span>สัญญา</span><span class="pu-val">${d.loans} ราย</span></div>
+    <div class="pu-bar"><div class="pu-fill" style="width:${Math.min(d.nplRate*5,100)}%;background:${col}"></div></div>
+  </div>`;
+}
+
+function buildMarkers() {
+  markersGroup.clearLayers();
+  dealers.forEach(d => {
+    const m = L.marker([d.lat, d.lng], {icon: dealerIcon(d)})
+              .bindPopup(popupHtml(d), {maxWidth:230});
+    mRefs[d.id] = m;
+    markersGroup.addLayer(m);
+  });
+}
+
+function buildHeat() {
+  const pts = dealers.map(d => [d.lat, d.lng, Math.min(d.nplAmt/8000000, 1)]);
+  if (heatLayer) map.removeLayer(heatLayer);
+  heatLayer = L.heatLayer(pts, {radius:50,blur:38,maxZoom:10,
+    gradient:{0.2:'#22c55e',0.5:'#f59e0b',0.75:'#f97316',1:'#ef4444'}});
+  if (viewMode==='heat'||viewMode==='both') heatLayer.addTo(map);
+}
+
+function setView(mode) {
+  viewMode = mode;
+  document.querySelectorAll('.mtb').forEach(b=>b.classList.remove('on'));
+  document.getElementById('btn-'+mode).classList.add('on');
+  if (mode==='heat') { if(!map.hasLayer(heatLayer))heatLayer.addTo(map); map.removeLayer(markersGroup); }
+  else if (mode==='dot') { if(map.hasLayer(heatLayer))map.removeLayer(heatLayer); if(!map.hasLayer(markersGroup))markersGroup.addTo(map); }
+  else { if(!map.hasLayer(heatLayer))heatLayer.addTo(map); if(!map.hasLayer(markersGroup))markersGroup.addTo(map); }
+}
+
+function flyTo(id) {
+  const d = dealers.find(x=>x.id===id);
+  if (!d) return;
+  map.flyTo([d.lat, d.lng], 11, {duration:1.2});
+  if (viewMode==='heat') setView('both');
+  setTimeout(() => mRefs[id]&&mRefs[id].openPopup(), 1300);
+}
+
+// ══════════════════════════════════════════════════════
+// RENDER FUNCTIONS
+// ══════════════════════════════════════════════════════
+function render() {
+  renderHeader();
+  renderEarlyWarning();
+  renderDonut();
+  renderRegionGrid();
+  renderProvBars();
+  renderDealerList();
+  renderTypeBars();
+  renderTopPersons();
+  renderTrend();
+  buildMarkers();
+  buildHeat();
+}
+
+function renderHeader() {
+  const s = summary;
+  document.getElementById('hv-npl').textContent  = fmt(s.totalNpl,1);
+  document.getElementById('hv-rate').textContent = (s.nplRate||0).toFixed(2)+'%';
+  document.getElementById('hv-hi').textContent   = s.highRisk||0;
+  document.getElementById('hv-mi').textContent   = s.midRisk||0;
+  document.getElementById('hv-lo').textContent   = s.lowRisk||0;
+  document.getElementById('hv-port').textContent = fmt(s.totalPort,0);
+}
+
+// ── Early Warning ──────────────────────────────────────
+function renderEarlyWarning() {
+  const s = summary;
+  const maxAmt = Math.max(s.dpd30Amt||0, s.dpd60Amt||0, 1);
+  const rows = [
+    { label:'DPD 30–59', count:s.dpd30||0, amt:s.dpd30Amt||0, col:'#f59e0b', action:'CALL', risk:'pre', filter:'pre' },
+    { label:'DPD 60–89', count:s.dpd60||0, amt:s.dpd60Amt||0, col:'#f97316', action:'FIELD', risk:'danger', filter:'pre' },
+  ];
+  document.getElementById('early-warning').innerHTML = rows.map(r => `
+    <div class="ew-row" onclick="openCollection();setCollTabByKey('${r.filter}')">
+      <div style="flex:1">
+        <div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:3px">
+          <span style="color:${r.col};font-family:'IBM Plex Mono',monospace">${r.label}</span>
+          <span style="color:var(--text1);font-family:'IBM Plex Mono',monospace">${r.count} สัญญา</span>
+        </div>
+        <div class="ew-bar"><div class="ew-fill" style="width:${(r.amt/maxAmt*100).toFixed(0)}%;background:${r.col}"></div></div>
+        <div style="font-size:10px;color:var(--text3);margin-top:2px">฿${(r.amt/1e6).toFixed(2)}M ที่เสี่ยง</div>
+      </div>
+      <div class="act-badge" style="border-color:${r.col};color:${r.col};background:${r.col}18">${r.action}</div>
+    </div>`).join('');
+}
+
+function dealerTier(nplRate) {
+  if (nplRate <  3) return {t:'A', c:'#22c55e'};
+  if (nplRate <  7) return {t:'B', c:'#38bdf8'};
+  if (nplRate < 15) return {t:'C', c:'#f59e0b'};
+  return               {t:'D', c:'#ef4444'};
+}
+
+function setRiskDirect(risk) {
+  const btn = document.querySelector(`[data-risk="${risk}"]`);
+  if (btn) setRisk(btn, risk);
+}
+
+function renderDonut() {
+  const total = (summary.highRisk||0)+(summary.midRisk||0)+(summary.lowRisk||0)||1;
+  const circ = 163;
+  const hA = (summary.highRisk/total)*circ;
+  const mA = (summary.midRisk/total)*circ;
+  const lA = (summary.lowRisk/total)*circ;
+  document.getElementById('donut-area').innerHTML = `
+    <div class="donut-ring">
+      <svg viewBox="0 0 60 60">
+        <circle class="donut-track" cx="30" cy="30" r="26"/>
+        <circle cx="30" cy="30" r="26" fill="none" stroke-width="6" stroke="#ef4444"
+          stroke-dasharray="${hA} ${circ-hA}" stroke-dashoffset="0"/>
+        <circle cx="30" cy="30" r="26" fill="none" stroke-width="6" stroke="#f59e0b"
+          stroke-dasharray="${mA} ${circ-mA}" stroke-dashoffset="${-hA}"/>
+        <circle cx="30" cy="30" r="26" fill="none" stroke-width="6" stroke="#22c55e"
+          stroke-dasharray="${lA} ${circ-lA}" stroke-dashoffset="${-(hA+mA)}"/>
+      </svg>
+      <div class="donut-lbl">
+        <div class="donut-big" style="color:var(--hi)">${(summary.nplRate||0).toFixed(1)}%</div>
+        <div style="font-size:9px;color:var(--text3)">NPL</div>
+      </div>
+    </div>
+    <div class="donut-info">
+      <div class="dleg" style="cursor:pointer;border-radius:3px;padding:2px 4px;transition:background .15s" onmouseenter="this.style.background='rgba(239,68,68,.08)'" onmouseleave="this.style.background=''" onclick="setRiskDirect('high')"><span style="color:var(--hi)">● High</span><span style="font-family:'IBM Plex Mono',monospace">${summary.highRisk||0} dealers ›</span></div>
+      <div class="dleg" style="cursor:pointer;border-radius:3px;padding:2px 4px;transition:background .15s" onmouseenter="this.style.background='rgba(245,158,11,.08)'" onmouseleave="this.style.background=''" onclick="setRiskDirect('mid')"><span style="color:var(--mi)">● Mid</span><span style="font-family:'IBM Plex Mono',monospace">${summary.midRisk||0} dealers ›</span></div>
+      <div class="dleg" style="cursor:pointer;border-radius:3px;padding:2px 4px;transition:background .15s" onmouseenter="this.style.background='rgba(34,197,94,.08)'" onmouseleave="this.style.background=''" onclick="setRiskDirect('low')"><span style="color:var(--lo)">● Low</span><span style="font-family:'IBM Plex Mono',monospace">${summary.lowRisk||0} dealers ›</span></div>
+      <div style="border-top:1px solid var(--border);margin-top:5px;padding-top:5px;font-size:11px;color:var(--text2)">
+        NPL: <span style="color:var(--hi);font-family:'IBM Plex Mono',monospace">${fmt(summary.totalNpl,2)}</span>
+      </div>
+    </div>`;
+}
+
+function renderRegionGrid() {
+  const maxNpl = Math.max(...regions.map(r=>r.nplAmt||0), 1);
+  const cols = {'กลาง':'#38bdf8','อีสาน':'#f59e0b','เหนือ':'#22c55e','ใต้':'#a78bfa','ตะวันออก':'#f87171','ตะวันตก':'#67e8f9'};
+  document.getElementById('region-grid').innerHTML = regions.map(r => {
+    const col = cols[r.region]||'#38bdf8';
+    const on = activeRegion===r.region?'on':'';
+    return `<div class="rg-card ${on}" onclick="setRegion('${r.region}')">
+      <div class="rg-name">${r.region}</div>
+      <div class="rg-val" style="color:${col}">฿${(r.nplAmt/1e6).toFixed(1)}M</div>
+      <div class="rg-sub">${r.nplRate}% | ${r.dealers}d</div>
+      <div class="rg-bar"><div class="rg-fill" style="width:${(r.nplAmt/maxNpl*100).toFixed(0)}%;background:${col}"></div></div>
+    </div>`;
+  }).join('');
+}
+
+function renderProvBars() {
+  const maxNpl = Math.max(...provinces.map(p=>p.nplAmt||0), 1);
+  document.getElementById('prov-bars').innerHTML = provinces.slice(0,10).map(p => {
+    const col = p.nplRate>=10?'#ef4444':p.nplRate>=5?'#f59e0b':'#22c55e';
+    return `<div class="bar-row">
+      <div class="bar-label">
+        <span class="bar-name">${p.province}</span>
+        <span class="bar-val" style="color:${col};font-size:11px">${p.nplRate}%</span>
+      </div>
+      <div class="bar-track"><div class="bar-fill" style="width:${(p.nplAmt/maxNpl*100).toFixed(0)}%;background:${col}"></div></div>
+    </div>`;
+  }).join('');
+}
+
+function renderDealerList() {
+  const list = [...dealers].sort((a,b)=>b.nplAmt-a.nplAmt);
+  document.getElementById('dl-cnt').textContent = `(${list.length})`;
+  document.getElementById('dealer-list').innerHTML = list.map((d,i) => {
+    const col = riskCol(d.riskLevel);
+    const tier = dealerTier(d.nplRate);
+    return `<div class="dr" onclick="flyTo('${d.id}')">
+      <div class="dr-idx">${i+1}</div>
+      <div class="tier-badge" style="color:${tier.c};border-color:${tier.c};background:${tier.c}18">${tier.t}</div>
+      <div class="dr-dot" style="background:${col}"></div>
+      <div class="dr-info">
+        <div class="dr-name">${d.name}</div>
+        <div class="dr-prov">${d.province} · ${d.loanType}</div>
+      </div>
+      <div class="dr-npl" style="color:${col}">${fmtK(d.nplAmt)}</div>
+      <div class="dr-pct" style="color:${col}">${d.nplRate}%</div>
+    </div>`;
+  }).join('');
+}
+
+function renderTypeBars() {
+  const types = {};
+  dealers.forEach(d => {
+    if (!types[d.loanType]) types[d.loanType] = {npl:0,port:0};
+    types[d.loanType].npl  += d.nplAmt;
+    types[d.loanType].port += d.port;
+  });
+  const maxNpl = Math.max(...Object.values(types).map(v=>v.npl), 1);
+  const cols = {'เช่าซื้อ':'#38bdf8','Personal':'#a78bfa','Nano':'#f59e0b'};
+  document.getElementById('type-bars').innerHTML = Object.entries(types).map(([t,v]) => {
+    const rate = v.port>0 ? (v.npl/v.port*100).toFixed(1) : 0;
+    const col = cols[t]||'#38bdf8';
+    return `<div class="bar-row">
+      <div class="bar-label">
+        <span class="bar-name">${t}</span>
+        <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:${col}">${rate}%</span>
+      </div>
+      <div class="bar-track"><div class="bar-fill" style="width:${(v.npl/maxNpl*100).toFixed(0)}%;background:${col}"></div></div>
+    </div>`;
+  }).join('');
+}
+
+function renderTopPersons() {
+  document.getElementById('top-persons').innerHTML = topNpls.map(p => {
+    const col = p.dpd>=120?'#ef4444':'#f59e0b';
+    return `<div class="pc" style="border-left-color:${col}">
+      <div class="pc-head">
+        <div class="pc-rank">#${p.rank}</div>
+        <div>
+          <div class="pc-name">${p.name}</div>
+          <div class="pc-sub">${p.dealerName}</div>
+          <div class="pc-loc">${p.province} · ${p.region} · ${p.loanType}</div>
+        </div>
+      </div>
+      <div class="pc-stats">
+        <div class="pc-s"><div class="pc-sv" style="color:var(--hi)">${fmtK(p.nplAmt)}</div><div class="pc-sl">NPL</div></div>
+        <div class="pc-s"><div class="pc-sv" style="color:var(--mi)">${p.dpd}d</div><div class="pc-sl">DPD</div></div>
+        <div class="pc-s"><div class="pc-sv" style="color:var(--cyan)">${p.loans}</div><div class="pc-sl">สัญญา</div></div>
+      </div>
+      <div style="height:4px;border-radius:2px;background:rgba(255,255,255,.07);margin-top:6px;overflow:hidden">
+        <div style="height:100%;border-radius:2px;background:${col};width:${Math.min(p.nplRate,100)}%"></div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function renderTrend() {
+  if (!trend.length) return;
+  const maxR = Math.max(...trend.map(t=>t.nplRate||0), 1);
+  document.getElementById('trend').innerHTML = trend.map(t => {
+    const col = t.nplRate>=10?'#ef4444':t.nplRate>=5?'#f59e0b':'#22c55e';
+    return `<div class="tb" style="height:${(t.nplRate/maxR*100).toFixed(0)}%;background:${col}"></div>`;
+  }).join('');
+  document.getElementById('trend-labels').innerHTML = trend
+    .filter((_,i)=>i%2===0)
+    .map(t=>`<span>${t.month.slice(5)}</span>`).join('');
+}
+
+// ══════════════════════════════════════════════════════
+// FILTER CONTROLS
+// ══════════════════════════════════════════════════════
+function setRisk(btn, risk) {
+  document.querySelectorAll('[data-risk]').forEach(b=>b.classList.remove('on'));
+  btn.classList.add('on');
+  activeRisk = risk;
+  reloadDealers();
+}
+
+function setRegion(r) {
+  activeRegion = activeRegion===r ? '' : r;
+  reloadDealers();
+  renderRegionGrid();
+}
+
+// ══════════════════════════════════════════════════════
+// COLLECTION PRIORITY MODAL
+// ══════════════════════════════════════════════════════
+let collItems = [], collTab = 'all';
+
+const actionDef = {
+  MONITOR:  {col:'#38bdf8', label:'ติดตาม'},
+  CALL:     {col:'#f59e0b', label:'โทรเก็บ'},
+  FIELD:    {col:'#f97316', label:'ลงพื้นที่'},
+  LEGAL:    {col:'#ef4444', label:'แจ้งความ'},
+  REPOSSESS:{col:'#9333ea', label:'ยึดทรัพย์'},
+};
+
+async function openCollection() {
+  document.getElementById('coll-modal').style.display = 'block';
+  document.getElementById('coll-list').innerHTML =
+    '<div style="padding:24px;text-align:center;color:var(--text3);font-size:11px">กำลังโหลด...</div>';
+  try {
+    collItems = await apiFetch('/api/collection-priority?limit=40');
+    renderCollection();
+  } catch(e) { showErr(e.message); }
+}
+
+function closeCollection() { document.getElementById('coll-modal').style.display = 'none'; }
+
+function setCollTab(tab, btn) {
+  collTab = tab;
+  document.querySelectorAll('.cm-tab').forEach(b => b.classList.remove('on'));
+  if (btn) btn.classList.add('on');
+  renderCollection();
+}
+
+function setCollTabByKey(key) {
+  const idx = key === 'pre' ? 1 : 0;
+  const btns = document.querySelectorAll('.cm-tab');
+  setCollTab(key === 'pre' ? 'pre' : 'all', btns[idx]);
+}
+
+function renderCollection() {
+  const filtered = collItems.filter(item => {
+    if (collTab === 'npl') return item.dpd > 90;
+    if (collTab === 'pre') return item.dpd >= 30 && item.dpd <= 89;
+    return true;
+  });
+
+  const totalAmt = filtered.reduce((s, i) => s + i.outstanding, 0);
+  document.getElementById('coll-stats').textContent =
+    `${filtered.length} รายการ · ฿${(totalAmt/1e6).toFixed(2)}M รวม`;
+
+  if (!filtered.length) {
+    document.getElementById('coll-list').innerHTML =
+      '<div style="padding:24px;text-align:center;color:var(--text3);font-size:11px">ไม่มีข้อมูล</div>';
+    return;
+  }
+
+  const maxScore = Math.max(...filtered.map(i => i.priorityScore), 1);
+  document.getElementById('coll-list').innerHTML = filtered.map((item, idx) => {
+    const act  = actionDef[item.action] || actionDef.MONITOR;
+    const dpdCol = item.dpd > 90 ? '#ef4444' : item.dpd > 59 ? '#f97316' : item.dpd > 29 ? '#f59e0b' : '#38bdf8';
+    const pct  = (item.priorityScore / maxScore * 100).toFixed(0);
+    return `<div class="cm-row">
+      <div style="font-family:'IBM Plex Mono',monospace;font-size:13px;font-weight:600;color:var(--text3)">${idx+1}</div>
+      <div>
+        <div style="font-size:12px;color:var(--text1);font-weight:500">${item.customerName}</div>
+        <div style="font-size:10px;color:var(--text3);margin-top:1px">${item.dealerName} · ${item.province}</div>
+        <div style="height:3px;border-radius:2px;background:rgba(255,255,255,.06);margin-top:4px;overflow:hidden">
+          <div style="height:100%;border-radius:2px;background:${act.col};width:${pct}%"></div>
+        </div>
+      </div>
+      <div style="font-family:'IBM Plex Mono',monospace;font-size:13px;font-weight:600;color:${dpdCol};text-align:center">${item.dpd}d</div>
+      <div>
+        <div style="font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--text1)">฿${(item.outstanding/1e6).toFixed(2)}M</div>
+        <div style="font-size:9px;color:var(--text3);margin-top:1px">${item.loanType}</div>
+      </div>
+      <div class="cm-score">${item.priorityScore.toFixed(1)}</div>
+      <div><div class="act-badge" style="border-color:${act.col};color:${act.col};background:${act.col}18">${act.label}</div></div>
+    </div>`;
+  }).join('');
+}
+
+// ══════════════════════════════════════════════════════
+// SSE — real-time refresh
+// ══════════════════════════════════════════════════════
+function connectSSE() {
+  const es = new EventSource(`${API}/api/events`);
+  es.onopen = () => { document.getElementById('live-dot').style.background = '#22c55e'; };
+  es.onmessage = e => {
+    if (e.data === 'refresh') {
+      loadAll();
+      if (document.getElementById('edit-modal').style.display !== 'none') loadEditLoans();
+    }
+  };
+  es.onerror = () => {
+    document.getElementById('live-dot').style.background = '#ef4444';
+    es.close();
+    setTimeout(connectSSE, 3000);
+  };
+}
+
+// ══════════════════════════════════════════════════════
+// EDIT MODAL
+// ══════════════════════════════════════════════════════
+function openEdit() {
+  const sel = document.getElementById('edit-dealer-sel');
+  const cur = sel.value;
+  sel.innerHTML = '<option value="">— เลือก Dealer —</option>' +
+    [...dealers].sort((a,b)=>a.name.localeCompare(b.name,'th')).map(d =>
+      `<option value="${d.id}" ${d.id===cur?'selected':''}>${d.name} · ${d.province}</option>`
+    ).join('');
+  document.getElementById('edit-modal').style.display = 'block';
+  if (cur) loadEditLoans();
+}
+
+function closeEdit() {
+  document.getElementById('edit-modal').style.display = 'none';
+}
+
+async function loadEditLoans() {
+  const dealerId = document.getElementById('edit-dealer-sel').value;
+  const el = document.getElementById('edit-loans');
+  if (!dealerId) { el.innerHTML = ''; return; }
+  el.innerHTML = '<div style="padding:16px;text-align:center;color:var(--text3);font-size:11px">กำลังโหลด...</div>';
+  try {
+    const loans = await apiFetch(`/api/loans?dealer_id=${dealerId}`);
+    renderEditLoans(loans);
+  } catch(e) { showErr(e.message); }
+}
+
+function renderEditLoans(loans) {
+  const el = document.getElementById('edit-loans');
+  if (!loans.length) {
+    el.innerHTML = '<div style="padding:20px;text-align:center;color:var(--text3);font-size:11px">ไม่มีสินเชื่อ</div>';
+    return;
+  }
+  el.innerHTML = '<div style="padding:6px 0 2px;font-size:9px;color:var(--text3);letter-spacing:1.2px;text-transform:uppercase;display:grid;grid-template-columns:1fr 80px 140px 90px;gap:10px"><span>ลูกค้า / สัญญา</span><span>DPD</span><span>ค้างชำระ</span><span>Actions</span></div>' +
+  loans.map(l => {
+    const col = l.dpd > 90 ? '#ef4444' : l.dpd > 30 ? '#f59e0b' : '#22c55e';
+    const sc = l.status==='ACTIVE'?'#22c55e':l.status==='PENDING'?'#f59e0b':'#4a5568';
+    return `<div class="em-row">
+      <div>
+        <div style="font-size:12px;color:var(--text1);font-weight:500">${l.customerName}</div>
+        <div style="font-size:10px;color:var(--text3);margin-top:1px">${l.id} · ${l.loanType} · <span style="color:${sc}">${l.status}</span> · ต้น ฿${(l.principal/1e6).toFixed(2)}M</div>
+      </div>
+      <div>
+        <input type="number" value="${l.dpd}" min="0" class="em-inp" style="border-color:${col};color:${col};text-align:center"
+          onchange="saveLoan('${l.id}',{dpd:+this.value})">
+      </div>
+      <div>
+        <input type="number" value="${l.outstanding}" min="0" class="em-inp"
+          onchange="saveLoan('${l.id}',{outstanding:+this.value})">
+      </div>
+      <div>
+        <button class="em-qbtn" style="border-color:#22c55e;color:#22c55e;background:rgba(34,197,94,.08)"
+          onclick="quickLoan('${l.id}','paid')">✓ ชำระแล้ว</button>
+        <button class="em-qbtn" style="border-color:var(--text3);color:var(--text3);background:rgba(74,85,104,.1)"
+          onclick="quickLoan('${l.id}','close')">✕ ปิดสัญญา</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+async function saveLoan(id, data) {
+  const st = document.getElementById('em-status');
+  st.textContent = 'กำลังบันทึก...';
+  st.style.color = 'var(--cyan)';
+  try {
+    await fetch(`${API}/api/loans/${id}`, {
+      method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify(data)
+    });
+    st.textContent = '✓ บันทึกแล้ว';
+    st.style.color = '#22c55e';
+    setTimeout(()=>st.textContent='', 2000);
+  } catch(e) {
+    st.textContent = '✗ ผิดพลาด';
+    st.style.color = '#ef4444';
+    showErr(e.message);
+  }
+}
+
+async function quickLoan(id, action) {
+  const data = action === 'paid'
+    ? {dpd:0, status:'ACTIVE'}
+    : {dpd:0, outstanding:0, status:'CLOSED'};
+  await saveLoan(id, data);
+  loadEditLoans();
+}
+
+async function addLoan() {
+  const dealerId = document.getElementById('edit-dealer-sel').value;
+  if (!dealerId) return showErr('เลือก Dealer ก่อน');
+  const name = document.getElementById('new-customer').value.trim();
+  const principal = +document.getElementById('new-principal').value;
+  const outstanding = +document.getElementById('new-outstanding').value || principal;
+  const loanType = document.getElementById('new-type').value;
+  const dpd = +document.getElementById('new-dpd').value || 0;
+  if (!name || !principal) return showErr('กรอกชื่อลูกค้าและวงเงินต้น');
+  try {
+    const res = await fetch(`${API}/api/loans`, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({dealerId, customerName:name, principal, outstanding, loanType, dpd})
+    });
+    if (!res.ok) { const j=await res.json(); throw new Error(j.error||res.status); }
+    ['new-customer','new-principal','new-outstanding'].forEach(id=>document.getElementById(id).value='');
+    document.getElementById('new-dpd').value='0';
+    loadEditLoans();
+  } catch(e) { showErr(e.message); }
+}
+
+// ══════════════════════════════════════════════════════
+// CLOCK + INIT
+// ══════════════════════════════════════════════════════
+setInterval(() => {
+  document.getElementById('clock').textContent =
+    new Date().toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+}, 1000);
+
+connectSSE();
+loadAll();
+setInterval(loadAll, REFRESH_MS);
+</script>
+</body>
+</html>

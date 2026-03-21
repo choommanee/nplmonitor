@@ -1,0 +1,28 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: sgf
+      POSTGRES_PASSWORD: sgf_password
+      POSTGRES_DB: npl_monitor
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  api:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      - db
+    environment:
+      DATABASE_URL: postgres://sgf:sgf_password@db:5432/npl_monitor?sslmode=disable
+      PORT: 3000
+    ports:
+      - "3000:3000"
+
+volumes:
+  pgdata:
