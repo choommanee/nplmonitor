@@ -207,7 +207,7 @@ html,body{height:100%;overflow:hidden;font-family:'IBM Plex Sans Thai',sans-seri
 .tgt-inp-sm:focus{border-color:rgba(2,132,199,.45)}
 
 /* Dealer Profile Panel */
-#dealer-panel{position:absolute;top:0;right:0;width:320px;height:100%;background:var(--c1);border-left:1px solid var(--border);z-index:500;transform:translateX(100%);transition:transform .3s ease;overflow-y:auto;box-shadow:-4px 0 20px rgba(0,0,0,.1)}
+#dealer-panel{position:fixed;top:52px;right:0;width:320px;height:calc(100vh - 52px);background:var(--c1);border-left:1px solid var(--border);z-index:700;transform:translateX(100%);transition:transform .3s ease;overflow-y:auto;box-shadow:-4px 0 20px rgba(0,0,0,.12)}
 #dealer-panel.open{transform:translateX(0)}
 .dp-hd{padding:12px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;background:var(--c1);z-index:1}
 .dp-sec{padding:10px 14px;border-bottom:1px solid var(--border)}
@@ -244,8 +244,8 @@ html,body{height:100%;overflow:hidden;font-family:'IBM Plex Sans Thai',sans-seri
   .coll-btn{font-size:9px;padding:2px 7px;margin-left:4px}
   .edit-btn{display:none}  /* hide edit on mobile, accessible via dealer panel */
 
-  /* dealer panel: fixed on mobile so it covers the map properly */
-  #dealer-panel{position:fixed!important;top:52px!important;right:0!important;width:min(340px,100vw)!important;height:calc(100vh - 52px)!important;z-index:900!important}
+  /* dealer panel: full width on mobile */
+  #dealer-panel{width:min(340px,100vw)!important;z-index:900!important}
 
   /* mob toggle buttons */
   #mob-btns{display:flex!important}
@@ -346,36 +346,6 @@ html,body{height:100%;overflow:hidden;font-family:'IBM Plex Sans Thai',sans-seri
     <div class="leg-row"><div class="leg-dot" style="background:var(--mi)"></div>ระวัง (5–9.9%)</div>
     <div class="leg-row"><div class="leg-dot" style="background:var(--lo)"></div>ปกติ (&lt;5%)</div>
   </div>
-  <!-- Dealer Profile Slide Panel -->
-  <div id="dealer-panel">
-    <div class="dp-hd">
-      <div>
-        <div id="dp-name" style="font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:500;color:var(--text1)"></div>
-        <div id="dp-sub" style="font-size:10px;color:var(--text3);margin-top:1px"></div>
-      </div>
-      <div style="display:flex;gap:6px;align-items:center">
-        <div id="dp-tier" class="tier-badge" style="width:20px;height:20px;font-size:10px"></div>
-        <button onclick="closeDealerPanel()" style="background:none;border:none;color:var(--text2);cursor:pointer;font-size:18px;line-height:1;padding:0 2px">×</button>
-      </div>
-    </div>
-    <div class="dp-sec">
-      <div id="dp-risk-bar" style="height:8px;border-radius:4px;background:rgba(0,0,0,.07);overflow:hidden;margin-bottom:6px">
-        <div id="dp-risk-fill" style="height:100%;border-radius:4px;transition:width .8s ease"></div>
-      </div>
-      <div style="display:flex;justify-content:space-between;font-size:10px">
-        <span id="dp-npl-rate" style="font-family:'IBM Plex Mono',monospace;font-weight:600"></span>
-        <span id="dp-vs-target" style="font-size:9px"></span>
-      </div>
-      <div class="dp-stat-grid" id="dp-stats"></div>
-    </div>
-    <div class="dp-sec">
-      <div class="sec-title" style="margin-bottom:6px">สัญญาเสี่ยง</div>
-      <div id="dp-loans"></div>
-    </div>
-    <div class="dp-sec" style="padding-bottom:14px">
-      <button onclick="openEditForDealer()" style="width:100%;padding:7px;border-radius:5px;border:1px solid rgba(2,132,199,.3);background:rgba(2,132,199,.07);color:var(--cyan);cursor:pointer;font-size:11px;font-family:'IBM Plex Mono',monospace">✎ แก้ไขข้อมูล Dealer นี้</button>
-    </div>
-  </div>
 </main>
 
 <!-- RIGHT PANEL -->
@@ -419,6 +389,37 @@ html,body{height:100%;overflow:hidden;font-family:'IBM Plex Sans Thai',sans-seri
     <div style="display:flex;justify-content:space-between;font-size:9px;color:var(--text3);margin-top:3px;font-family:'IBM Plex Mono',monospace" id="trend-labels"></div>
   </div>
 </aside>
+</div>
+
+<!-- Dealer Profile Slide Panel (fixed overlay, body-level) -->
+<div id="dealer-panel">
+  <div class="dp-hd">
+    <div>
+      <div id="dp-name" style="font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:500;color:var(--text1)"></div>
+      <div id="dp-sub" style="font-size:10px;color:var(--text3);margin-top:1px"></div>
+    </div>
+    <div style="display:flex;gap:6px;align-items:center">
+      <div id="dp-tier" class="tier-badge" style="width:20px;height:20px;font-size:10px"></div>
+      <button onclick="closeDealerPanel()" style="background:none;border:none;color:var(--text2);cursor:pointer;font-size:18px;line-height:1;padding:0 2px">×</button>
+    </div>
+  </div>
+  <div class="dp-sec">
+    <div id="dp-risk-bar" style="height:8px;border-radius:4px;background:rgba(0,0,0,.07);overflow:hidden;margin-bottom:6px">
+      <div id="dp-risk-fill" style="height:100%;border-radius:4px;transition:width .8s ease"></div>
+    </div>
+    <div style="display:flex;justify-content:space-between;font-size:10px">
+      <span id="dp-npl-rate" style="font-family:'IBM Plex Mono',monospace;font-weight:600"></span>
+      <span id="dp-vs-target" style="font-size:9px"></span>
+    </div>
+    <div class="dp-stat-grid" id="dp-stats"></div>
+  </div>
+  <div class="dp-sec">
+    <div class="sec-title" style="margin-bottom:6px">สัญญาเสี่ยง</div>
+    <div id="dp-loans"></div>
+  </div>
+  <div class="dp-sec" style="padding-bottom:14px">
+    <button onclick="openEditForDealer()" style="width:100%;padding:7px;border-radius:5px;border:1px solid rgba(2,132,199,.3);background:rgba(2,132,199,.07);color:var(--cyan);cursor:pointer;font-size:11px;font-family:'IBM Plex Mono',monospace">✎ แก้ไขข้อมูล Dealer นี้</button>
+  </div>
 </div>
 
 <!-- Collection Priority Modal -->
@@ -1349,6 +1350,9 @@ let activeDealerId = null;
 
 async function openDealerProfile(id) {
   activeDealerId = id;
+  // Close mobile side drawers when opening dealer panel
+  document.getElementById('lp').classList.remove('mob-open');
+  document.getElementById('rp').classList.remove('mob-open');
   const panel = document.getElementById('dealer-panel');
   panel.classList.add('open');
   document.getElementById('dp-name').textContent = '…';
