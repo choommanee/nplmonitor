@@ -222,17 +222,53 @@ html,body{height:100%;overflow:hidden;font-family:'IBM Plex Sans Thai',sans-seri
 
 /* ── Mobile Responsive ─────────────────────────────── */
 @media (max-width: 900px) {
-  #app{grid-template-columns:0 1fr 0;grid-template-areas:"hd hd hd""mp mp mp";grid-template-rows:52px 1fr}
-  #lp,#rp{display:none;position:fixed;top:52px;height:calc(100vh - 52px);z-index:800;background:var(--c1);overflow-y:auto;flex-direction:column}
-  #lp{left:0;width:280px;border-right:1px solid var(--border);box-shadow:4px 0 16px rgba(0,0,0,.12)}
-  #rp{right:0;width:280px;border-left:1px solid var(--border);box-shadow:-4px 0 16px rgba(0,0,0,.12)}
+  /* grid: full-width map only */
+  #app{grid-template-columns:1fr;grid-template-areas:"hd""mp";grid-template-rows:52px 1fr}
+
+  /* side panels: fixed overlay drawers */
+  #lp,#rp{display:none;position:fixed;top:52px;height:calc(100vh - 52px);z-index:850;background:var(--c1);overflow-y:auto;flex-direction:column}
+  #lp{left:0;width:min(300px,88vw);border-right:1px solid var(--border);box-shadow:4px 0 20px rgba(0,0,0,.15)}
+  #rp{right:0;width:min(300px,88vw);border-left:1px solid var(--border);box-shadow:-4px 0 20px rgba(0,0,0,.15)}
   #lp.mob-open,#rp.mob-open{display:flex}
+
+  /* header: compact + scrollable KPIs */
+  #hd{padding:0 10px;gap:0}
+  .logo{font-size:12px;letter-spacing:1px;padding-right:10px}
+  .kpis{overflow-x:auto;-webkit-overflow-scrolling:touch;flex:1;justify-content:flex-start}
+  .kpis::-webkit-scrollbar{display:none}
+  .kpi{padding:0 7px;flex-shrink:0}
+  .kv{font-size:11px}
+  .kl{font-size:8px}
+  #clock{display:none}
+  .live{margin-right:5px}
+  .coll-btn{font-size:9px;padding:2px 7px;margin-left:4px}
+  .edit-btn{display:none}  /* hide edit on mobile, accessible via dealer panel */
+
+  /* dealer panel: fixed on mobile so it covers the map properly */
+  #dealer-panel{position:fixed!important;top:52px!important;right:0!important;width:min(340px,100vw)!important;height:calc(100vh - 52px)!important;z-index:900!important}
+
+  /* mob toggle buttons */
   #mob-btns{display:flex!important}
-  .kpis{gap:0}
-  .kpi{padding:0 8px}
-  .kv{font-size:12px}
-  .kl{font-size:9px}
-  .coll-btn,.edit-btn{font-size:10px;padding:3px 8px}
+
+  /* collection modal: full screen */
+  #coll-modal{padding:0}
+  .cm-wrap{max-width:100%;margin:0;border-radius:0;min-height:100vh}
+  #coll-list{overflow-x:auto}
+  .cm-row{grid-template-columns:26px minmax(120px,1fr) 46px minmax(80px,110px) 80px 90px;gap:6px;padding:8px 12px;min-width:420px}
+  .cm-hd{padding:10px 14px;flex-wrap:wrap;gap:6px}
+  .cm-tabs{padding:8px 14px;flex-wrap:wrap}
+
+  /* edit modal: full screen */
+  #edit-modal{padding:0}
+  .em-wrap{border-radius:0;max-width:100%}
+  .em-row{grid-template-columns:1fr 70px 110px 80px;gap:6px}
+  .em-grid{grid-template-columns:1fr 1fr}
+
+  /* region grid: 2 cols instead of 3 */
+  .rg-grid{grid-template-columns:1fr 1fr}
+
+  /* map tools: wrap */
+  #map-tools{flex-wrap:wrap;max-width:200px}
 }
 @media (min-width: 901px) {
   #mob-btns{display:none!important}
