@@ -205,6 +205,38 @@ html,body{height:100%;overflow:hidden;font-family:'IBM Plex Sans Thai',sans-seri
 .tgt-edit:hover{color:var(--cyan)}
 .tgt-inp-sm{width:52px;background:var(--c2);border:1px solid var(--border);color:var(--text1);padding:2px 6px;border-radius:4px;font-size:11px;font-family:'IBM Plex Mono',monospace;text-align:center;outline:none}
 .tgt-inp-sm:focus{border-color:rgba(2,132,199,.45)}
+
+/* Dealer Profile Panel */
+#dealer-panel{position:absolute;top:0;right:0;width:320px;height:100%;background:var(--c1);border-left:1px solid var(--border);z-index:500;transform:translateX(100%);transition:transform .3s ease;overflow-y:auto;box-shadow:-4px 0 20px rgba(0,0,0,.1)}
+#dealer-panel.open{transform:translateX(0)}
+.dp-hd{padding:12px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;background:var(--c1);z-index:1}
+.dp-sec{padding:10px 14px;border-bottom:1px solid var(--border)}
+.dp-stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px}
+.dp-stat{background:var(--c2);border-radius:6px;padding:7px 9px;border:1px solid var(--border)}
+.dp-sv{font-family:'IBM Plex Mono',monospace;font-size:14px;font-weight:500;margin-bottom:2px}
+.dp-sl{font-size:9px;color:var(--text3);letter-spacing:.8px;text-transform:uppercase}
+.dp-loan{display:flex;align-items:center;gap:7px;padding:5px 0;border-bottom:1px solid var(--border);font-size:11px}
+.dp-loan:last-child{border-bottom:none}
+.dp-gauge{height:6px;border-radius:3px;background:rgba(0,0,0,.07);overflow:hidden;margin-top:7px}
+.dp-gauge-fill{height:100%;border-radius:3px;transition:width .8s ease}
+
+/* ── Mobile Responsive ─────────────────────────────── */
+@media (max-width: 900px) {
+  #app{grid-template-columns:0 1fr 0;grid-template-areas:"hd hd hd""mp mp mp";grid-template-rows:52px 1fr}
+  #lp,#rp{display:none;position:fixed;top:52px;height:calc(100vh - 52px);z-index:800;background:var(--c1);overflow-y:auto;flex-direction:column}
+  #lp{left:0;width:280px;border-right:1px solid var(--border);box-shadow:4px 0 16px rgba(0,0,0,.12)}
+  #rp{right:0;width:280px;border-left:1px solid var(--border);box-shadow:-4px 0 16px rgba(0,0,0,.12)}
+  #lp.mob-open,#rp.mob-open{display:flex}
+  #mob-btns{display:flex!important}
+  .kpis{gap:0}
+  .kpi{padding:0 8px}
+  .kv{font-size:12px}
+  .kl{font-size:9px}
+  .coll-btn,.edit-btn{font-size:10px;padding:3px 8px}
+}
+@media (min-width: 901px) {
+  #mob-btns{display:none!important}
+}
 </style>
 </head>
 <body>
@@ -221,6 +253,10 @@ html,body{height:100%;overflow:hidden;font-family:'IBM Plex Sans Thai',sans-seri
     <div class="kpi"><div class="kv" style="color:var(--mi)" id="hv-mi">—</div><div class="kl">Mid Risk</div></div>
     <div class="kpi"><div class="kv" style="color:var(--lo)" id="hv-lo">—</div><div class="kl">Normal</div></div>
     <div class="kpi"><div class="kv" style="color:var(--cyan)" id="hv-port">—</div><div class="kl">Port รวม</div></div>
+  </div>
+  <div id="mob-btns" style="display:none;gap:4px;margin-right:8px">
+    <button onclick="document.getElementById('lp').classList.toggle('mob-open')" style="padding:4px 10px;border-radius:4px;border:1px solid var(--border);background:var(--c2);color:var(--text2);font-size:11px;cursor:pointer">☰ ซ้าย</button>
+    <button onclick="document.getElementById('rp').classList.toggle('mob-open')" style="padding:4px 10px;border-radius:4px;border:1px solid var(--border);background:var(--c2);color:var(--text2);font-size:11px;cursor:pointer">☰ ขวา</button>
   </div>
   <div class="live" id="live-dot"></div>
   <div id="clock">--:--:--</div>
@@ -273,6 +309,36 @@ html,body{height:100%;overflow:hidden;font-family:'IBM Plex Sans Thai',sans-seri
     <div class="leg-row"><div class="leg-dot" style="background:var(--hi)"></div>สูง (≥10%)</div>
     <div class="leg-row"><div class="leg-dot" style="background:var(--mi)"></div>ระวัง (5–9.9%)</div>
     <div class="leg-row"><div class="leg-dot" style="background:var(--lo)"></div>ปกติ (&lt;5%)</div>
+  </div>
+  <!-- Dealer Profile Slide Panel -->
+  <div id="dealer-panel">
+    <div class="dp-hd">
+      <div>
+        <div id="dp-name" style="font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:500;color:var(--text1)"></div>
+        <div id="dp-sub" style="font-size:10px;color:var(--text3);margin-top:1px"></div>
+      </div>
+      <div style="display:flex;gap:6px;align-items:center">
+        <div id="dp-tier" class="tier-badge" style="width:20px;height:20px;font-size:10px"></div>
+        <button onclick="closeDealerPanel()" style="background:none;border:none;color:var(--text2);cursor:pointer;font-size:18px;line-height:1;padding:0 2px">×</button>
+      </div>
+    </div>
+    <div class="dp-sec">
+      <div id="dp-risk-bar" style="height:8px;border-radius:4px;background:rgba(0,0,0,.07);overflow:hidden;margin-bottom:6px">
+        <div id="dp-risk-fill" style="height:100%;border-radius:4px;transition:width .8s ease"></div>
+      </div>
+      <div style="display:flex;justify-content:space-between;font-size:10px">
+        <span id="dp-npl-rate" style="font-family:'IBM Plex Mono',monospace;font-weight:600"></span>
+        <span id="dp-vs-target" style="font-size:9px"></span>
+      </div>
+      <div class="dp-stat-grid" id="dp-stats"></div>
+    </div>
+    <div class="dp-sec">
+      <div class="sec-title" style="margin-bottom:6px">สัญญาเสี่ยง</div>
+      <div id="dp-loans"></div>
+    </div>
+    <div class="dp-sec" style="padding-bottom:14px">
+      <button onclick="openEditForDealer()" style="width:100%;padding:7px;border-radius:5px;border:1px solid rgba(2,132,199,.3);background:rgba(2,132,199,.07);color:var(--cyan);cursor:pointer;font-size:11px;font-family:'IBM Plex Mono',monospace">✎ แก้ไขข้อมูล Dealer นี้</button>
+    </div>
   </div>
 </main>
 
@@ -346,8 +412,12 @@ html,body{height:100%;overflow:hidden;font-family:'IBM Plex Sans Thai',sans-seri
       <div style="font-size:9px;color:var(--text3);letter-spacing:1px">Action</div>
     </div>
     <div id="coll-list" style="max-height:480px;overflow-y:auto"></div>
-    <div style="padding:10px 18px;border-top:1px solid var(--border);background:var(--c2);font-size:10px;color:var(--text3)">
-      Priority Score = DPD × ยอดค้าง (M฿) — สูงกว่า = ต้องเก็บก่อน
+    <div id="coll-footer" style="padding:10px 18px;border-top:1px solid var(--border);background:var(--c2)">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <div style="font-size:10px;color:var(--text3)">Priority Score = DPD × ยอดค้าง (M฿)</div>
+        <div id="recovery-proj" style="font-size:11px;font-family:'IBM Plex Mono',monospace"></div>
+      </div>
+      <div id="recovery-bars" style="display:flex;gap:4px;margin-top:6px;height:4px;border-radius:2px;overflow:hidden"></div>
     </div>
   </div>
 </div>
@@ -655,7 +725,7 @@ function renderEarlyWarning() {
   const maxAmt = Math.max(s.dpd30Amt||0, s.dpd60Amt||0, 1);
   const rows = [
     { label:'DPD 30–59', count:s.dpd30||0, amt:s.dpd30Amt||0, col:'#f59e0b', action:'CALL', risk:'pre', filter:'pre' },
-    { label:'DPD 60–89', count:s.dpd60||0, amt:s.dpd60Amt||0, col:'#f97316', action:'FIELD', risk:'danger', filter:'pre' },
+    { label:'DPD 60–89', count:s.dpd60||0, amt:s.dpd60Amt||0, col:'#f97316', action:'FIELD', risk:'danger', filter:'pre', warn:'⚠️ เสี่ยงเป็น NPL ใน ~30 วัน' },
   ];
   document.getElementById('early-warning').innerHTML = rows.map(r => `
     <div class="ew-row" onclick="openCollection();setCollTabByKey('${r.filter}')">
@@ -665,7 +735,7 @@ function renderEarlyWarning() {
           <span style="color:var(--text1);font-family:'IBM Plex Mono',monospace">${r.count} สัญญา</span>
         </div>
         <div class="ew-bar"><div class="ew-fill" style="width:${(r.amt/maxAmt*100).toFixed(0)}%;background:${r.col}"></div></div>
-        <div style="font-size:10px;color:var(--text3);margin-top:2px">฿${(r.amt/1e6).toFixed(2)}M ที่เสี่ยง</div>
+        <div style="font-size:10px;color:var(--text3);margin-top:2px">฿${(r.amt/1e6).toFixed(2)}M ที่เสี่ยง${r.warn ? ` · <span style="color:${r.col};font-weight:500">${r.warn}</span>` : ''}</div>
       </div>
       <div class="act-badge" style="border-color:${r.col};color:${r.col};background:${r.col}18">${r.action}</div>
     </div>`).join('');
@@ -750,7 +820,7 @@ function renderDealerList() {
   document.getElementById('dealer-list').innerHTML = list.map((d,i) => {
     const col = riskCol(d.riskLevel);
     const tier = dealerTier(d.nplRate);
-    return `<div class="dr" onclick="flyTo('${d.id}')">
+    return `<div class="dr" onclick="openDealerProfile('${d.id}')">
       <div class="dr-idx">${i+1}</div>
       <div class="tier-badge" style="color:${tier.c};border-color:${tier.c};background:${tier.c}18">${tier.t}</div>
       <div class="dr-dot" style="background:${col}"></div>
@@ -896,6 +966,28 @@ function renderCollection() {
   document.getElementById('coll-stats').textContent =
     `${filtered.length} รายการ · ฿${(totalAmt/1e6).toFixed(2)}M รวม`;
 
+  // Recovery projection
+  const recoveryRate = {MONITOR:0.85, CALL:0.60, FIELD:0.35, LEGAL:0.15, REPOSSESS:0.08};
+  const byAction = {};
+  filtered.forEach(item => {
+    if (!byAction[item.action]) byAction[item.action] = {amt:0, col:''};
+    byAction[item.action].amt += item.outstanding;
+    byAction[item.action].col = (actionDef[item.action]||actionDef.MONITOR).col;
+  });
+  const totalOutstanding = filtered.reduce((s,i) => s + i.outstanding, 0);
+  const totalRecovery = filtered.reduce((s,i) => s + i.outstanding * (recoveryRate[i.action]||0.5), 0);
+  const recovProj = document.getElementById('recovery-proj');
+  if (recovProj && totalRecovery > 0) {
+    const pct = totalOutstanding > 0 ? (totalRecovery/totalOutstanding*100).toFixed(0) : 0;
+    recovProj.innerHTML = `<span style="color:var(--lo)">คาดเก็บได้ ${fmt(totalRecovery,2)}</span> <span style="color:var(--text3)">(${pct}%)</span>`;
+  }
+  const recovBars = document.getElementById('recovery-bars');
+  if (recovBars && totalOutstanding > 0) {
+    recovBars.innerHTML = Object.entries(byAction).map(([action, {amt, col}]) =>
+      `<div style="flex:${(amt/totalOutstanding*100).toFixed(1)};background:${col};border-radius:2px" title="${action}: ฿${(amt/1e6).toFixed(2)}M"></div>`
+    ).join('');
+  }
+
   if (!filtered.length) {
     document.getElementById('coll-list').innerHTML =
       '<div style="padding:24px;text-align:center;color:var(--text3);font-size:11px">ไม่มีข้อมูล</div>';
@@ -923,7 +1015,10 @@ function renderCollection() {
           <div style="height:100%;border-radius:2px;background:${act.col};width:${pct}%"></div>
         </div>
       </div>
-      <div style="font-family:'IBM Plex Mono',monospace;font-size:13px;font-weight:600;color:${dpdCol};text-align:center">${item.dpd}d</div>
+      <div style="text-align:center">
+        <div style="font-family:'IBM Plex Mono',monospace;font-size:13px;font-weight:600;color:${dpdCol}">${item.dpd}d</div>
+        ${item.dpd>=60&&item.dpd<=89?'<div style="font-size:8px;color:#f97316;margin-top:1px">→NPL soon</div>':''}
+      </div>
       <div>
         <div style="font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--text1)">฿${(item.outstanding/1e6).toFixed(2)}M</div>
         <div style="font-size:9px;color:var(--text3);margin-top:1px">${item.loanType}</div>
@@ -1209,6 +1304,106 @@ function exportCollection() {
 }
 function exportDealers() {
   window.open(`${API}/api/export/dealers`, '_blank');
+}
+
+// ══════════════════════════════════════════════════════
+// DEALER PROFILE PANEL
+// ══════════════════════════════════════════════════════
+let activeDealerId = null;
+
+async function openDealerProfile(id) {
+  activeDealerId = id;
+  const panel = document.getElementById('dealer-panel');
+  panel.classList.add('open');
+  document.getElementById('dp-name').textContent = '…';
+  document.getElementById('dp-stats').innerHTML = '<div style="color:var(--text3);font-size:11px;padding:8px 0">กำลังโหลด...</div>';
+  document.getElementById('dp-loans').innerHTML = '';
+
+  try {
+    const [det, loans] = await Promise.all([
+      apiFetch(`/api/dealers/${id}`),
+      apiFetch(`/api/loans?dealer_id=${id}`)
+    ]);
+
+    const col = riskCol(det.riskLevel);
+    const tier = dealerTier(det.nplRate);
+    const tb = document.getElementById('dp-tier');
+    tb.textContent = tier.t;
+    tb.style.color = tier.c;
+    tb.style.borderColor = tier.c;
+    tb.style.background = tier.c + '18';
+
+    document.getElementById('dp-name').textContent = det.name;
+    document.getElementById('dp-sub').textContent = `${det.province} · ${det.region} · ${det.loanType}`;
+
+    // NPL Rate gauge
+    document.getElementById('dp-npl-rate').textContent = det.nplRate.toFixed(2) + '% NPL Rate';
+    document.getElementById('dp-npl-rate').style.color = col;
+    document.getElementById('dp-risk-fill').style.width = Math.min(det.nplRate * 5, 100) + '%';
+    document.getElementById('dp-risk-fill').style.background = col;
+
+    // vs target
+    const tgt = targets['overall'];
+    if (tgt) {
+      const diff = det.nplRate - tgt.targetRate;
+      const vsEl = document.getElementById('dp-vs-target');
+      vsEl.textContent = diff > 0 ? `▲ เกินเป้า ${diff.toFixed(2)}%` : `✓ ต่ำกว่าเป้า ${Math.abs(diff).toFixed(2)}%`;
+      vsEl.style.color = diff > 0 ? '#dc2626' : '#16a34a';
+    }
+
+    // Stats grid
+    document.getElementById('dp-stats').innerHTML = [
+      {v: fmt(det.port,1),    l:'Port รวม',       c:'var(--cyan)'},
+      {v: fmt(det.nplAmt,1),  l:'NPL รวม',        c:'var(--hi)'},
+      {v: det.loans+'',       l:'สัญญาทั้งหมด',  c:'var(--text1)'},
+      {v: det.loans90+'',     l:'สัญญา NPL',      c:'var(--hi)'},
+      {v: det.avgDpd.toFixed(0)+'d', l:'Avg DPD',  c:'var(--mi)'},
+      {v: fmt(det.avgLoan,1), l:'Avg Loan',        c:'var(--text1)'},
+    ].map(s => `<div class="dp-stat">
+      <div class="dp-sv" style="color:${s.c}">${s.v}</div>
+      <div class="dp-sl">${s.l}</div>
+    </div>`).join('');
+
+    // At-risk loans
+    const atRisk = loans.filter(l => l.dpd > 0).sort((a,b) => b.dpd - a.dpd).slice(0, 6);
+    if (!atRisk.length) {
+      document.getElementById('dp-loans').innerHTML = '<div style="color:var(--text3);font-size:11px;padding:6px 0">ไม่มีสัญญาที่เสี่ยง</div>';
+    } else {
+      const maxDpd = Math.max(...atRisk.map(l=>l.dpd), 1);
+      document.getElementById('dp-loans').innerHTML = atRisk.map(l => {
+        const dc = l.dpd>90?'var(--hi)':l.dpd>59?'#f97316':'var(--mi)';
+        const action = l.dpd>180?'REPOSSESS':l.dpd>120?'LEGAL':l.dpd>89?'FIELD':l.dpd>59?'FIELD':'CALL';
+        const ad = actionDef[action]||actionDef.CALL;
+        return `<div class="dp-loan">
+          <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;color:${dc};width:36px;flex-shrink:0">${l.dpd}d</div>
+          <div style="flex:1;min-width:0">
+            <div style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--text1)">${l.customerName}</div>
+            <div style="font-size:9px;color:var(--text3)">฿${(l.outstanding/1e6).toFixed(2)}M · ${l.loanType}</div>
+            <div class="dp-gauge"><div class="dp-gauge-fill" style="width:${(l.dpd/maxDpd*100).toFixed(0)}%;background:${dc}"></div></div>
+          </div>
+          <div class="act-badge" style="border-color:${ad.col};color:${ad.col};background:${ad.col}18;font-size:8px">${ad.label}</div>
+        </div>`;
+      }).join('');
+    }
+
+    // Fly to on map too
+    flyTo(id);
+  } catch(e) { showErr(e.message); }
+}
+
+function closeDealerPanel() {
+  document.getElementById('dealer-panel').classList.remove('open');
+  activeDealerId = null;
+}
+
+function openEditForDealer() {
+  const id = activeDealerId;
+  closeDealerPanel();
+  openEdit();
+  setTimeout(() => {
+    const sel = document.getElementById('edit-dealer-sel');
+    if (id && sel) { sel.value = id; loadEditLoans(); }
+  }, 150);
 }
 
 // ══════════════════════════════════════════════════════
