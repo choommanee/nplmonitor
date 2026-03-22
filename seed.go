@@ -57,6 +57,26 @@ func migrate(db *sql.DB) error {
 	CREATE INDEX IF NOT EXISTS idx_loans_customer ON loans(customer_id);
 	CREATE INDEX IF NOT EXISTS idx_loans_dpd      ON loans(dpd);
 	CREATE INDEX IF NOT EXISTS idx_loans_status   ON loans(status);
+
+	CREATE TABLE IF NOT EXISTS collection_logs (
+	    id           SERIAL PRIMARY KEY,
+	    loan_id      TEXT REFERENCES loans(loan_id),
+	    action_type  TEXT NOT NULL,   -- CALL, FIELD, LEGAL, SMS, OTHER
+	    result       TEXT NOT NULL,   -- PROMISE_TO_PAY, NO_ANSWER, REFUSED, PAID, UNREACHABLE
+	    promise_date DATE,
+	    promise_amt  NUMERIC(15,2),
+	    notes        TEXT,
+	    created_by   TEXT NOT NULL DEFAULT 'ทีมงาน',
+	    created_at   TIMESTAMP DEFAULT NOW()
+	);
+	CREATE INDEX IF NOT EXISTS idx_logs_loan ON collection_logs(loan_id);
+	CREATE INDEX IF NOT EXISTS idx_logs_created ON collection_logs(created_at DESC);
+
+	CREATE TABLE IF NOT EXISTS npl_targets (
+	    target_key  TEXT PRIMARY KEY,
+	    target_rate NUMERIC(5,2) NOT NULL DEFAULT 5.00,
+	    updated_at  TIMESTAMP DEFAULT NOW()
+	);
 	`
 	_, err := db.Exec(schema)
 	if err != nil {
@@ -246,5 +266,16 @@ func seed(db *sql.DB) error {
 
 	log.Printf("✅ Seeded: %d dealers, %d customers, %d loans",
 		len(dealers), len(customers), len(loans))
+
+	// ── Default NPL Targets ────────────────────────────────────
+	if _, errT := db.Exec(`
+		INSERT INTO npl_targets(target_key, target_rate) VALUES
+		    ('overall', 5.00), ('กลาง', 6.00), ('เหนือ', 5.00),
+		    ('ใต้', 5.00), ('ตะวันออก', 5.00), ('ตะวันออกเฉียงเหนือ', 5.00), ('ตะวันตก', 5.00)
+		ON CONFLICT(target_key) DO NOTHING
+	`); errT != nil {
+		log.Printf("npl_targets seed warning: %v", errT)
+	}
+
 	return nil
 }

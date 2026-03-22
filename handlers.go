@@ -2,6 +2,7 @@ package main
 
 import (
 	"database/sql"
+	"encoding/csv"
 	"fmt"
 	"math"
 	"time"
@@ -422,7 +423,17 @@ func handleCollectionPriority(c *fiber.Ctx) error {
 				WHEN l.dpd <= 120 THEN 'FIELD'
 				WHEN l.dpd <= 180 THEN 'LEGAL'
 				ELSE 'REPOSSESS'
-			END AS action
+			END AS action,
+			COALESCE(
+				TO_CHAR(
+					(SELECT created_at FROM collection_logs WHERE loan_id = l.loan_id ORDER BY created_at DESC LIMIT 1)
+					AT TIME ZONE 'Asia/Bangkok', 'DD/MM/YY'
+				), ''
+			) AS last_contact,
+			COALESCE(
+				(SELECT result FROM collection_logs WHERE loan_id = l.loan_id ORDER BY created_at DESC LIMIT 1),
+				''
+			) AS last_result
 		FROM loans l
 		JOIN customers cu ON cu.customer_id = l.customer_id
 		JOIN dealers   d  ON d.dealer_id    = l.dealer_id
@@ -441,7 +452,8 @@ func handleCollectionPriority(c *fiber.Ctx) error {
 		rows.Scan(&item.Priority, &item.LoanID, &item.CustomerName,
 			&item.DealerName, &item.Province, &item.Region,
 			&item.DPD, &item.Outstanding, &item.Principal,
-			&item.LoanType, &item.PriorityScore, &item.Action)
+			&item.LoanType, &item.PriorityScore, &item.Action,
+			&item.LastContact, &item.LastResult)
 		result = append(result, item)
 	}
 	if result == nil {
@@ -500,4 +512,267 @@ func handleCreateLoan(c *fiber.Ctx) error {
 
 	hub.broadcast("refresh")
 	return c.Status(201).JSON(fiber.Map{"ok": true, "loanId": loanID})
+}
+
+// GET /api/loans/:id/logs
+func handleGetLoanLogs(c *fiber.Ctx) error {
+	id := c.Params("id")
+	rows, err := DB.Query(`
+		SELECT id, loan_id, action_type, result,
+		       COALESCE(promise_date::text,''), COALESCE(promise_amt,0),
+		       COALESCE(notes,''), created_by,
+		       TO_CHAR(created_at AT TIME ZONE 'Asia/Bangkok', 'DD/MM/YY HH24:MI') AS ts
+		FROM collection_logs
+		WHERE loan_id = $1
+		ORDER BY created_at DESC
+		LIMIT 20
+	`, id)
+	if err != nil {
+		return c.Status(500).JSON(fiber.Map{"error": err.Error()})
+	}
+	defer rows.Close()
+	var result []CollectionLog
+	for rows.Next() {
+		var l CollectionLog
+		rows.Scan(&l.ID, &l.LoanID, &l.ActionType, &l.Result,
+			&l.PromiseDate, &l.PromiseAmt, &l.Notes, &l.CreatedBy, &l.CreatedAt)
+		result = append(result, l)
+	}
+	if result == nil {
+		result = []CollectionLog{}
+	}
+	return c.JSON(result)
+}
+
+// POST /api/loans/:id/logs
+func handleCreateLoanLog(c *fiber.Ctx) error {
+	loanID := c.Params("id")
+	var body struct {
+		ActionType  string  `json:"actionType"`
+		Result      string  `json:"result"`
+		PromiseDate string  `json:"promiseDate"`
+		PromiseAmt  float64 `json:"promiseAmt"`
+		Notes       string  `json:"notes"`
+		CreatedBy   string  `json:"createdBy"`
+	}
+	if err := c.BodyParser(&body); err != nil {
+		return c.Status(400).JSON(fiber.Map{"error": "invalid body"})
+	}
+	if body.ActionType == "" || body.Result == "" {
+		return c.Status(400).JSON(fiber.Map{"error": "actionType and result required"})
+	}
+	if body.CreatedBy == "" {
+		body.CreatedBy = "ทีมงาน"
+	}
+
+	var promiseDate interface{} = nil
+	if body.PromiseDate != "" {
+		promiseDate = body.PromiseDate
+	}
+	var promiseAmt interface{} = nil
+	if body.PromiseAmt > 0 {
+		promiseAmt = body.PromiseAmt
+	}
+
+	_, err := DB.Exec(`
+		INSERT INTO collection_logs(loan_id, action_type, result, promise_date, promise_amt, notes, created_by)
+		VALUES($1,$2,$3,$4,$5,$6,$7)`,
+		loanID, body.ActionType, body.Result, promiseDate, promiseAmt, body.Notes, body.CreatedBy)
+	if err != nil {
+		return c.Status(500).JSON(fiber.Map{"error": err.Error()})
+	}
+	hub.broadcast("activity")
+	return c.Status(201).JSON(fiber.Map{"ok": true})
+}
+
+// GET /api/activity-feed?limit=20
+func handleActivityFeed(c *fiber.Ctx) error {
+	limit := c.QueryInt("limit", 15)
+	rows, err := DB.Query(`
+		SELECT cl.id, cl.loan_id,
+		       COALESCE(cu.full_name, cl.loan_id) AS customer_name,
+		       d.dealer_name,
+		       cl.action_type, cl.result,
+		       COALESCE(cl.notes,''), cl.created_by,
+		       TO_CHAR(cl.created_at AT TIME ZONE 'Asia/Bangkok', 'DD/MM/YY HH24:MI') AS ts,
+		       l.dpd, l.outstanding_balance
+		FROM collection_logs cl
+		JOIN loans l       ON l.loan_id     = cl.loan_id
+		JOIN customers cu  ON cu.customer_id = l.customer_id
+		JOIN dealers d     ON d.dealer_id   = l.dealer_id
+		ORDER BY cl.created_at DESC
+		LIMIT $1
+	`, limit)
+	if err != nil {
+		return c.Status(500).JSON(fiber.Map{"error": err.Error()})
+	}
+	defer rows.Close()
+	var result []ActivityFeedItem
+	for rows.Next() {
+		var a ActivityFeedItem
+		rows.Scan(&a.ID, &a.LoanID, &a.CustomerName, &a.DealerName,
+			&a.ActionType, &a.Result, &a.Notes, &a.CreatedBy,
+			&a.CreatedAt, &a.DPD, &a.Outstanding)
+		result = append(result, a)
+	}
+	if result == nil {
+		result = []ActivityFeedItem{}
+	}
+	return c.JSON(result)
+}
+
+// GET /api/targets
+func handleGetTargets(c *fiber.Ctx) error {
+	rows, err := DB.Query(`
+		SELECT target_key, target_rate,
+		       TO_CHAR(updated_at AT TIME ZONE 'Asia/Bangkok', 'DD/MM/YY HH24:MI')
+		FROM npl_targets ORDER BY target_key
+	`)
+	if err != nil {
+		return c.Status(500).JSON(fiber.Map{"error": err.Error()})
+	}
+	defer rows.Close()
+	var result []NplTarget
+	for rows.Next() {
+		var t NplTarget
+		rows.Scan(&t.Key, &t.TargetRate, &t.UpdatedAt)
+		result = append(result, t)
+	}
+	if result == nil {
+		result = []NplTarget{}
+	}
+	return c.JSON(result)
+}
+
+// PUT /api/targets/:key
+func handleSetTarget(c *fiber.Ctx) error {
+	key := c.Params("key")
+	var body struct {
+		TargetRate float64 `json:"targetRate"`
+	}
+	if err := c.BodyParser(&body); err != nil {
+		return c.Status(400).JSON(fiber.Map{"error": "invalid body"})
+	}
+	if body.TargetRate <= 0 || body.TargetRate > 100 {
+		return c.Status(400).JSON(fiber.Map{"error": "targetRate must be between 0.01 and 100"})
+	}
+	_, err := DB.Exec(`
+		INSERT INTO npl_targets(target_key, target_rate, updated_at)
+		VALUES($1, $2, NOW())
+		ON CONFLICT(target_key) DO UPDATE
+		SET target_rate = EXCLUDED.target_rate, updated_at = NOW()
+	`, key, body.TargetRate)
+	if err != nil {
+		return c.Status(500).JSON(fiber.Map{"error": err.Error()})
+	}
+	hub.broadcast("refresh")
+	return c.JSON(fiber.Map{"ok": true})
+}
+
+// GET /api/export/collection
+func handleExportCollection(c *fiber.Ctx) error {
+	rows, err := DB.Query(`
+		SELECT
+			ROW_NUMBER() OVER (ORDER BY (CAST(l.dpd AS FLOAT8) * l.outstanding_balance) DESC),
+			l.loan_id,
+			COALESCE(cu.full_name, l.customer_id),
+			d.dealer_name, d.province, d.region,
+			l.dpd, l.outstanding_balance, l.principal_amount, l.loan_type,
+			ROUND((CAST(l.dpd AS FLOAT8) * l.outstanding_balance / 1000000.0)::numeric, 2),
+			CASE
+				WHEN l.dpd <= 29  THEN 'MONITOR'
+				WHEN l.dpd <= 89  THEN 'CALL'
+				WHEN l.dpd <= 120 THEN 'FIELD'
+				WHEN l.dpd <= 180 THEN 'LEGAL'
+				ELSE 'REPOSSESS'
+			END,
+			COALESCE(
+				(SELECT result FROM collection_logs WHERE loan_id = l.loan_id ORDER BY created_at DESC LIMIT 1), ''
+			)
+		FROM loans l
+		JOIN customers cu ON cu.customer_id = l.customer_id
+		JOIN dealers   d  ON d.dealer_id    = l.dealer_id
+		WHERE l.status <> 'CLOSED' AND l.dpd > 0
+		ORDER BY (CAST(l.dpd AS FLOAT8) * l.outstanding_balance) DESC
+		LIMIT 500
+	`)
+	if err != nil {
+		return c.Status(500).JSON(fiber.Map{"error": err.Error()})
+	}
+	defer rows.Close()
+
+	c.Set("Content-Type", "text/csv; charset=utf-8")
+	c.Set("Content-Disposition", "attachment; filename=collection_priority.csv")
+
+	w := csv.NewWriter(c.Response().BodyWriter())
+	w.Write([]string{"ลำดับ", "Loan ID", "ชื่อลูกค้า", "ดีลเลอร์", "จังหวัด", "ภูมิภาค", "DPD", "ยอดค้างชำระ", "เงินต้น", "ประเภท", "Priority Score", "Action", "ผลล่าสุด"})
+
+	for rows.Next() {
+		var priority int
+		var loanID, name, dealer, province, region, loanType, action, lastResult string
+		var dpd int
+		var outstanding, principal, score float64
+		rows.Scan(&priority, &loanID, &name, &dealer, &province, &region,
+			&dpd, &outstanding, &principal, &loanType, &score, &action, &lastResult)
+		w.Write([]string{
+			fmt.Sprintf("%d", priority), loanID, name, dealer, province, region,
+			fmt.Sprintf("%d", dpd),
+			fmt.Sprintf("%.2f", outstanding),
+			fmt.Sprintf("%.2f", principal),
+			loanType,
+			fmt.Sprintf("%.2f", score),
+			action, lastResult,
+		})
+	}
+	w.Flush()
+	return nil
+}
+
+// GET /api/export/dealers
+func handleExportDealers(c *fiber.Ctx) error {
+	rows, err := DB.Query(`
+		SELECT
+			d.dealer_id, d.dealer_name, d.province, d.region, d.loan_type,
+			COALESCE(SUM(l.principal_amount), 0),
+			COALESCE(SUM(CASE WHEN l.dpd > 90 THEN l.outstanding_balance ELSE 0 END), 0),
+			COUNT(l.loan_id),
+			COUNT(CASE WHEN l.dpd > 90 THEN 1 END),
+			COALESCE(AVG(CASE WHEN l.dpd > 0 THEN l.dpd END), 0)
+		FROM dealers d
+		LEFT JOIN loans l ON l.dealer_id = d.dealer_id AND l.status <> 'CLOSED'
+		GROUP BY d.dealer_id, d.dealer_name, d.province, d.region, d.loan_type
+		ORDER BY SUM(CASE WHEN l.dpd > 90 THEN l.outstanding_balance ELSE 0 END) DESC NULLS LAST
+	`)
+	if err != nil {
+		return c.Status(500).JSON(fiber.Map{"error": err.Error()})
+	}
+	defer rows.Close()
+
+	c.Set("Content-Type", "text/csv; charset=utf-8")
+	c.Set("Content-Disposition", "attachment; filename=dealer_npl_summary.csv")
+
+	w := csv.NewWriter(c.Response().BodyWriter())
+	w.Write([]string{"Dealer ID", "ชื่อดีลเลอร์", "จังหวัด", "ภูมิภาค", "ประเภทสินเชื่อ", "Port รวม", "NPL รวม", "สัญญาทั้งหมด", "สัญญา NPL", "Avg DPD", "NPL Rate %"})
+
+	for rows.Next() {
+		var id, name, prov, region, loanType string
+		var port, npl, avgDPD float64
+		var loans, nplLoans int
+		rows.Scan(&id, &name, &prov, &region, &loanType, &port, &npl, &loans, &nplLoans, &avgDPD)
+		nplRate := 0.0
+		if port > 0 {
+			nplRate = math.Round(npl/port*10000) / 100
+		}
+		w.Write([]string{
+			id, name, prov, region, loanType,
+			fmt.Sprintf("%.2f", port),
+			fmt.Sprintf("%.2f", npl),
+			fmt.Sprintf("%d", loans),
+			fmt.Sprintf("%d", nplLoans),
+			fmt.Sprintf("%.1f", avgDPD),
+			fmt.Sprintf("%.2f", nplRate),
+		})
+	}
+	w.Flush()
+	return nil
 }

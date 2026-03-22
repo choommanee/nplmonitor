@@ -37,6 +37,8 @@ type CollectionItem struct {
 	LoanType      string  `json:"loanType"`
 	PriorityScore float64 `json:"priorityScore"`
 	Action        string  `json:"action"` // MONITOR/CALL/FIELD/LEGAL/REPOSSESS
+	LastContact   string  `json:"lastContact,omitempty"` // last log created_at
+	LastResult    string  `json:"lastResult,omitempty"`  // last log result
 }
 
 // DealerRow — GET /api/dealers
@@ -130,4 +132,39 @@ type LoanRow struct {
 	Status       string  `json:"status"`
 	DPD          int     `json:"dpd"`
 	ContractDate string  `json:"contractDate"`
+}
+
+// CollectionLog — GET/POST /api/loans/:id/logs
+type CollectionLog struct {
+	ID          int     `json:"id"`
+	LoanID      string  `json:"loanId"`
+	ActionType  string  `json:"actionType"` // CALL/FIELD/LEGAL/SMS/OTHER
+	Result      string  `json:"result"`     // PROMISE_TO_PAY/NO_ANSWER/REFUSED/PAID/UNREACHABLE
+	PromiseDate string  `json:"promiseDate,omitempty"`
+	PromiseAmt  float64 `json:"promiseAmt,omitempty"`
+	Notes       string  `json:"notes,omitempty"`
+	CreatedBy   string  `json:"createdBy"`
+	CreatedAt   string  `json:"createdAt"`
+}
+
+// ActivityFeedItem — GET /api/activity-feed
+type ActivityFeedItem struct {
+	ID           int     `json:"id"`
+	LoanID       string  `json:"loanId"`
+	CustomerName string  `json:"customerName"`
+	DealerName   string  `json:"dealerName"`
+	ActionType   string  `json:"actionType"`
+	Result       string  `json:"result"`
+	Notes        string  `json:"notes,omitempty"`
+	CreatedBy    string  `json:"createdBy"`
+	CreatedAt    string  `json:"createdAt"`
+	DPD          int     `json:"dpd"`
+	Outstanding  float64 `json:"outstanding"`
+}
+
+// NplTarget — GET/PUT /api/targets
+type NplTarget struct {
+	Key        string  `json:"key"`
+	TargetRate float64 `json:"targetRate"`
+	UpdatedAt  string  `json:"updatedAt"`
 }

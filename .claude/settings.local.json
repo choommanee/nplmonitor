@@ -1,0 +1,19 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pandoc --track-changes=all \"SGF-NPL-Monitor-Documentation.docx\" -o /tmp/npl-doc.md)",
+      "Bash(go version:*)",
+      "Bash(go mod:*)",
+      "Bash(go build:*)",
+      "Bash(docker info:*)",
+      "mcp__Claude_Preview__preview_start",
+      "Bash(pg_isready)",
+      "Bash(createdb npl_monitor)",
+      "Bash(ssh -T git@github.com)",
+      "Bash(railway --version)",
+      "Bash(railway whoami:*)",
+      "Bash(railway login:*)",
+      "Bash(RAILWAY_TOKEN=5c8888f4-dda4-4ff7-9953-63ad3108bc40 railway whoami)"
+    ]
+  }
+}

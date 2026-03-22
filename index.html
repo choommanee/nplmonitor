@@ -176,11 +176,35 @@ html,body{height:100%;overflow:hidden;font-family:'IBM Plex Sans Thai',sans-seri
 .cm-tabs{display:flex;gap:6px;padding:10px 18px;border-bottom:1px solid var(--border);background:var(--c2)}
 .cm-tab{padding:4px 12px;border-radius:4px;border:1px solid var(--border);color:var(--text2);font-size:11px;cursor:pointer;font-family:'IBM Plex Mono',monospace;transition:all .15s}
 .cm-tab.on{border-color:var(--cyan);color:var(--cyan);background:rgba(2,132,199,.07)}
-.cm-row{padding:10px 18px;border-bottom:1px solid rgba(0,0,0,.05);display:grid;grid-template-columns:36px 1fr 70px 130px 100px 88px;gap:10px;align-items:center}
+.cm-row{padding:10px 18px;border-bottom:1px solid rgba(0,0,0,.05);display:grid;grid-template-columns:36px 1fr 70px 130px 100px 100px;gap:10px;align-items:center}
 .cm-row:last-child{border-bottom:none}
 .cm-row:hover{background:rgba(0,0,0,.02)}
 .act-badge{padding:3px 7px;border-radius:3px;font-size:9px;font-weight:600;font-family:'IBM Plex Mono',monospace;border:1px solid;text-align:center;letter-spacing:.5px}
 .cm-score{font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--text3)}
+/* Log Activity Modal */
+#log-modal{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:10001;display:none;align-items:center;justify-content:center}
+.lm-wrap{width:440px;background:var(--c1);border:1px solid var(--border);border-radius:12px;overflow:hidden;box-shadow:0 8px 32px rgba(0,0,0,.15)}
+.lm-hd{padding:13px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.lm-body{padding:16px 18px;display:flex;flex-direction:column;gap:11px}
+.lm-lbl{font-size:9px;color:var(--text3);letter-spacing:1.2px;text-transform:uppercase;margin-bottom:4px}
+.lm-sel,.lm-inp{width:100%;background:var(--c2);border:1px solid var(--border);color:var(--text1);padding:7px 10px;border-radius:6px;font-size:13px;font-family:'IBM Plex Sans Thai',sans-serif;outline:none}
+.lm-sel:focus,.lm-inp:focus{border-color:rgba(2,132,199,.45)}
+.lm-row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.lm-foot{padding:12px 18px;border-top:1px solid var(--border);display:flex;gap:8px;justify-content:flex-end}
+/* Activity Feed */
+.af-item{display:flex;gap:8px;padding:7px 4px;border-bottom:1px solid var(--border);align-items:flex-start;cursor:default}
+.af-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;margin-top:3px}
+.af-name{font-size:11px;color:var(--text1);font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.af-sub{font-size:10px;color:var(--text2);margin-top:1px}
+.af-meta{font-size:9px;color:var(--text3);margin-top:2px;font-family:'IBM Plex Mono',monospace}
+.af-result{display:inline-block;padding:1px 5px;border-radius:3px;font-size:9px;font-weight:600;border:1px solid;font-family:'IBM Plex Mono',monospace;margin-left:4px}
+/* Target indicators */
+.tgt-row{display:flex;align-items:center;gap:6px;margin-top:5px;font-size:10px}
+.tgt-badge{font-size:9px;padding:2px 6px;border-radius:3px;font-family:'IBM Plex Mono',monospace;font-weight:600;border:1px solid}
+.tgt-edit{background:none;border:none;color:var(--text3);cursor:pointer;font-size:11px;padding:1px 4px;border-radius:3px;transition:color .15s}
+.tgt-edit:hover{color:var(--cyan)}
+.tgt-inp-sm{width:52px;background:var(--c2);border:1px solid var(--border);color:var(--text1);padding:2px 6px;border-radius:4px;font-size:11px;font-family:'IBM Plex Mono',monospace;text-align:center;outline:none}
+.tgt-inp-sm:focus{border-color:rgba(2,132,199,.45)}
 </style>
 </head>
 <body>
@@ -228,7 +252,10 @@ html,body{height:100%;overflow:hidden;font-family:'IBM Plex Sans Thai',sans-seri
     <div id="prov-bars"></div>
   </div>
   <div class="sec" style="flex:1">
-    <div class="sec-title">Dealer List <span id="dl-cnt" style="color:var(--text2);font-size:11px;letter-spacing:0;text-transform:none"></span></div>
+    <div class="sec-title" style="display:flex;justify-content:space-between;align-items:center">
+      <span>Dealer List <span id="dl-cnt" style="color:var(--text2);font-size:11px;letter-spacing:0;text-transform:none"></span></span>
+      <button onclick="exportDealers()" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:10px;padding:0;font-family:'IBM Plex Mono',monospace">↓ CSV</button>
+    </div>
     <div class="sc" id="dealer-list" style="max-height:300px"></div>
   </div>
 </aside>
@@ -252,8 +279,20 @@ html,body{height:100%;overflow:hidden;font-family:'IBM Plex Sans Thai',sans-seri
 <!-- RIGHT PANEL -->
 <aside id="rp">
   <div class="sec">
-    <div class="sec-title">Portfolio Overview</div>
+    <div class="sec-title" style="display:flex;justify-content:space-between;align-items:center">
+      <span>Portfolio Overview</span>
+      <button id="tgt-settings-btn" onclick="toggleTargetEdit()" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:11px;padding:0" title="ตั้งเป้า NPL Rate">⚙ เป้าหมาย</button>
+    </div>
     <div class="donut-wrap" id="donut-area"></div>
+    <div id="tgt-overall-row" class="tgt-row" style="display:none">
+      <span style="color:var(--text3)">เป้าหมาย:</span>
+      <div class="tgt-badge" id="tgt-overall-badge">5.00%</div>
+      <div id="tgt-overall-status" style="font-size:10px"></div>
+      <div id="tgt-overall-edit" style="display:none;align-items:center;gap:4px">
+        <input class="tgt-inp-sm" id="tgt-inp-overall" type="number" step="0.1" min="0.1" max="99">
+        <button onclick="saveTarget('overall')" style="padding:2px 8px;border-radius:4px;border:none;background:var(--cyan);color:#fff;font-size:10px;cursor:pointer">ตั้ง</button>
+      </div>
+    </div>
   </div>
   <div class="sec">
     <div class="sec-title">NPL แยกประเภทสินเชื่อ</div>
@@ -262,6 +301,15 @@ html,body{height:100%;overflow:hidden;font-family:'IBM Plex Sans Thai',sans-seri
   <div class="sec">
     <div class="sec-title">🚨 Top NPL รายบุคคล</div>
     <div class="sc" id="top-persons" style="max-height:300px"></div>
+  </div>
+  <div class="sec">
+    <div class="sec-title" style="display:flex;justify-content:space-between;align-items:center">
+      <span>📋 Activity Feed</span>
+      <button onclick="loadActivityFeed()" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:11px;padding:0">↻ รีเฟรช</button>
+    </div>
+    <div class="sc" id="activity-feed" style="max-height:200px">
+      <div style="padding:12px 0;text-align:center;color:var(--text3);font-size:11px">ยังไม่มีกิจกรรม</div>
+    </div>
   </div>
   <div class="sec" style="flex:1">
     <div class="sec-title">NPL Trend 12 เดือน</div>
@@ -279,14 +327,17 @@ html,body{height:100%;overflow:hidden;font-family:'IBM Plex Sans Thai',sans-seri
         <div style="font-family:'IBM Plex Mono',monospace;font-size:13px;color:var(--hi)">⚡ Collection Priority Queue</div>
         <div id="coll-stats" style="font-size:10px;color:var(--text3)"></div>
       </div>
-      <button onclick="closeCollection()" style="background:none;border:none;color:var(--text2);cursor:pointer;font-size:20px;line-height:1;padding:0 4px">×</button>
+      <div style="display:flex;align-items:center;gap:8px">
+        <button onclick="exportCollection()" style="padding:4px 11px;background:rgba(22,163,74,.07);border:1px solid rgba(22,163,74,.3);color:var(--lo);border-radius:5px;font-size:11px;cursor:pointer;font-family:'IBM Plex Mono',monospace">↓ Export CSV</button>
+        <button onclick="closeCollection()" style="background:none;border:none;color:var(--text2);cursor:pointer;font-size:20px;line-height:1;padding:0 4px">×</button>
+      </div>
     </div>
     <div class="cm-tabs">
       <button class="cm-tab on" onclick="setCollTab('all',this)">ทั้งหมด</button>
       <button class="cm-tab" onclick="setCollTab('npl',this)">NPL (>90d)</button>
       <button class="cm-tab" onclick="setCollTab('pre',this)">Pre-NPL (30–89d)</button>
     </div>
-    <div style="padding:6px 18px;border-bottom:1px solid var(--border);background:var(--c2);display:grid;grid-template-columns:36px 1fr 70px 130px 100px 88px;gap:10px">
+    <div style="padding:6px 18px;border-bottom:1px solid var(--border);background:var(--c2);display:grid;grid-template-columns:36px 1fr 70px 130px 100px 100px;gap:10px">
       <div style="font-size:9px;color:var(--text3);letter-spacing:1px">#</div>
       <div style="font-size:9px;color:var(--text3);letter-spacing:1px">ลูกค้า / Dealer</div>
       <div style="font-size:9px;color:var(--text3);letter-spacing:1px">DPD</div>
@@ -361,6 +412,65 @@ html,body{height:100%;overflow:hidden;font-family:'IBM Plex Sans Thai',sans-seri
   </div>
 </div>
 
+<!-- Log Activity Modal -->
+<div id="log-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:10001;align-items:center;justify-content:center">
+  <div class="lm-wrap">
+    <div class="lm-hd">
+      <div>
+        <div style="font-family:'IBM Plex Mono',monospace;font-size:13px;color:var(--cyan)">📝 บันทึก Collection Activity</div>
+        <div id="log-loan-info" style="font-size:10px;color:var(--text3);margin-top:2px"></div>
+      </div>
+      <button onclick="closeLogModal()" style="background:none;border:none;color:var(--text2);cursor:pointer;font-size:20px;line-height:1;padding:0 4px">×</button>
+    </div>
+    <div class="lm-body">
+      <div class="lm-row2">
+        <div>
+          <div class="lm-lbl">ประเภท Action</div>
+          <select id="log-action" class="lm-sel">
+            <option value="CALL">📞 โทรศัพท์</option>
+            <option value="FIELD">🚗 ลงพื้นที่</option>
+            <option value="LEGAL">⚖️ ดำเนินคดี</option>
+            <option value="SMS">💬 SMS/LINE</option>
+            <option value="OTHER">📋 อื่นๆ</option>
+          </select>
+        </div>
+        <div>
+          <div class="lm-lbl">ผลการติดต่อ</div>
+          <select id="log-result" class="lm-sel">
+            <option value="PROMISE_TO_PAY">✅ นัดชำระ</option>
+            <option value="NO_ANSWER">📵 ไม่รับสาย</option>
+            <option value="REFUSED">🚫 ปฏิเสธ</option>
+            <option value="PAID">💚 ชำระแล้ว</option>
+            <option value="UNREACHABLE">❓ หาตัวไม่เจอ</option>
+          </select>
+        </div>
+      </div>
+      <div class="lm-row2" id="log-promise-row">
+        <div>
+          <div class="lm-lbl">วันนัดชำระ</div>
+          <input id="log-promise-date" class="lm-inp" type="date">
+        </div>
+        <div>
+          <div class="lm-lbl">ยอดที่นัด (บาท)</div>
+          <input id="log-promise-amt" class="lm-inp" type="number" placeholder="0">
+        </div>
+      </div>
+      <div>
+        <div class="lm-lbl">หมายเหตุ</div>
+        <input id="log-notes" class="lm-inp" type="text" placeholder="รายละเอียดเพิ่มเติม...">
+      </div>
+      <div>
+        <div class="lm-lbl">บันทึกโดย</div>
+        <input id="log-by" class="lm-inp" type="text" placeholder="ชื่อผู้บันทึก">
+      </div>
+    </div>
+    <div class="lm-foot">
+      <button onclick="closeLogModal()" style="padding:7px 16px;border-radius:5px;border:1px solid var(--border);background:transparent;color:var(--text2);cursor:pointer;font-size:12px">ยกเลิก</button>
+      <button onclick="submitLog()" style="padding:7px 18px;border-radius:5px;border:none;background:var(--cyan);color:#fff;cursor:pointer;font-size:12px;font-weight:500">💾 บันทึก</button>
+    </div>
+  </div>
+</div>
+
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.heat/0.2.0/leaflet-heat.js"></script>
 <script>
@@ -378,6 +488,9 @@ let activeRisk = '', activeRegion = '';
 let viewMode = 'heat';
 let heatLayer = null;
 let markersGroup = null;
+let targets = {};
+let logLoanId = null;
+let logLoanName = '';
 const mRefs = {};
 
 // ══════════════════════════════════════════════════════
@@ -405,14 +518,18 @@ function showErr(msg) {
 // ══════════════════════════════════════════════════════
 async function loadAll() {
   try {
-    [summary, dealers, regions, provinces, topNpls, trend] = await Promise.all([
+    const [s, d, r, p, t, tr, tgt] = await Promise.all([
       apiFetch('/api/summary'),
       apiFetch(`/api/dealers?risk=${activeRisk}&region=${activeRegion}`),
       apiFetch('/api/regions'),
       apiFetch(`/api/provinces?region=${activeRegion}`),
       apiFetch('/api/top-npls?limit=8'),
       apiFetch('/api/trend?months=12'),
+      apiFetch('/api/targets'),
     ]);
+    [summary, dealers, regions, provinces, topNpls, trend] = [s, d, r, p, t, tr];
+    targets = {};
+    (tgt||[]).forEach(t => targets[t.key] = t);
     render();
     document.getElementById('loading').style.display = 'none';
     document.getElementById('live-dot').style.background = '#22c55e';
@@ -519,6 +636,7 @@ function render() {
   renderTrend();
   buildMarkers();
   buildHeat();
+  renderTargetOverall();
 }
 
 function renderHeader() {
@@ -725,6 +843,15 @@ function setRegion(r) {
 // ══════════════════════════════════════════════════════
 let collItems = [], collTab = 'all';
 
+const resultDef = {
+  PROMISE_TO_PAY: {col:'#16a34a', label:'นัดชำระ'},
+  NO_ANSWER:      {col:'#94a3b8', label:'ไม่รับสาย'},
+  REFUSED:        {col:'#dc2626', label:'ปฏิเสธ'},
+  PAID:           {col:'#16a34a', label:'ชำระแล้ว'},
+  UNREACHABLE:    {col:'#d97706', label:'หาไม่เจอ'},
+};
+const actionIcon = {CALL:'📞',FIELD:'🚗',LEGAL:'⚖️',SMS:'💬',OTHER:'📋'};
+
 const actionDef = {
   MONITOR:  {col:'#38bdf8', label:'ติดตาม'},
   CALL:     {col:'#f59e0b', label:'โทรเก็บ'},
@@ -780,12 +907,19 @@ function renderCollection() {
     const act  = actionDef[item.action] || actionDef.MONITOR;
     const dpdCol = item.dpd > 90 ? '#ef4444' : item.dpd > 59 ? '#f97316' : item.dpd > 29 ? '#f59e0b' : '#38bdf8';
     const pct  = (item.priorityScore / maxScore * 100).toFixed(0);
+    const lastC = item.lastContact ? `<span style="font-size:9px;color:var(--text3);font-family:'IBM Plex Mono',monospace;margin-left:4px">📅${item.lastContact}</span>` : '';
+    const lastR = item.lastResult ? (() => {
+      const rd2 = resultDef[item.lastResult]||{col:'#94a3b8',label:item.lastResult};
+      return `<span class="af-result" style="border-color:${rd2.col};color:${rd2.col};background:${rd2.col}15;margin-left:4px">${rd2.label}</span>`;
+    })() : '';
     return `<div class="cm-row">
       <div style="font-family:'IBM Plex Mono',monospace;font-size:13px;font-weight:600;color:var(--text3)">${idx+1}</div>
       <div>
-        <div style="font-size:12px;color:var(--text1);font-weight:500">${item.customerName}</div>
-        <div style="font-size:10px;color:var(--text3);margin-top:1px">${item.dealerName} · ${item.province}</div>
-        <div style="height:3px;border-radius:2px;background:rgba(255,255,255,.06);margin-top:4px;overflow:hidden">
+        <div style="display:flex;align-items:center;flex-wrap:wrap;gap:2px">
+          <span style="font-size:12px;color:var(--text1);font-weight:500">${item.customerName}</span>${lastR}
+        </div>
+        <div style="font-size:10px;color:var(--text3);margin-top:1px">${item.dealerName} · ${item.province}${lastC}</div>
+        <div style="height:3px;border-radius:2px;background:rgba(0,0,0,.07);margin-top:4px;overflow:hidden">
           <div style="height:100%;border-radius:2px;background:${act.col};width:${pct}%"></div>
         </div>
       </div>
@@ -795,7 +929,10 @@ function renderCollection() {
         <div style="font-size:9px;color:var(--text3);margin-top:1px">${item.loanType}</div>
       </div>
       <div class="cm-score">${item.priorityScore.toFixed(1)}</div>
-      <div><div class="act-badge" style="border-color:${act.col};color:${act.col};background:${act.col}18">${act.label}</div></div>
+      <div style="display:flex;flex-direction:column;gap:4px">
+        <div class="act-badge" style="border-color:${act.col};color:${act.col};background:${act.col}18">${act.label}</div>
+        <button onclick="openLogModal('${item.loanId}','${item.customerName.replace(/'/g,"\\'")}',${item.dpd},${item.outstanding})" style="padding:2px 6px;border-radius:3px;border:1px solid var(--border);background:var(--c2);color:var(--text2);font-size:9px;cursor:pointer;font-family:'IBM Plex Mono',monospace;width:100%">📝 บันทึก</button>
+      </div>
     </div>`;
   }).join('');
 }
@@ -810,6 +947,12 @@ function connectSSE() {
     if (e.data === 'refresh') {
       loadAll();
       if (document.getElementById('edit-modal').style.display !== 'none') loadEditLoans();
+      loadActivityFeed();
+    } else if (e.data === 'activity') {
+      loadActivityFeed();
+      if (document.getElementById('coll-modal').style.display !== 'none') {
+        apiFetch('/api/collection-priority?limit=40').then(r => { collItems = r; renderCollection(); });
+      }
     }
   };
   es.onerror = () => {
@@ -929,6 +1072,146 @@ async function addLoan() {
 }
 
 // ══════════════════════════════════════════════════════
+// COLLECTION LOG MODAL
+// ══════════════════════════════════════════════════════
+function openLogModal(loanId, customerName, dpd, outstanding) {
+  logLoanId = loanId;
+  logLoanName = customerName;
+  document.getElementById('log-loan-info').textContent =
+    `${customerName} · DPD ${dpd}d · ฿${(outstanding/1e6).toFixed(2)}M`;
+  document.getElementById('log-result').value = 'PROMISE_TO_PAY';
+  document.getElementById('log-promise-date').value = '';
+  document.getElementById('log-promise-amt').value = '';
+  document.getElementById('log-notes').value = '';
+  document.getElementById('log-by').value = '';
+  document.getElementById('log-modal').style.display = 'flex';
+}
+
+function closeLogModal() {
+  document.getElementById('log-modal').style.display = 'none';
+  logLoanId = null;
+}
+
+async function submitLog() {
+  if (!logLoanId) return;
+  const body = {
+    actionType: document.getElementById('log-action').value,
+    result: document.getElementById('log-result').value,
+    promiseDate: document.getElementById('log-promise-date').value || '',
+    promiseAmt: parseFloat(document.getElementById('log-promise-amt').value) || 0,
+    notes: document.getElementById('log-notes').value,
+    createdBy: document.getElementById('log-by').value || 'ทีมงาน',
+  };
+  try {
+    const res = await fetch(`${API}/api/loans/${logLoanId}/logs`, {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify(body)
+    });
+    if (!res.ok) throw new Error('บันทึกไม่สำเร็จ');
+    closeLogModal();
+    loadActivityFeed();
+    // refresh collection list to show updated lastContact
+    if (document.getElementById('coll-modal').style.display !== 'none') {
+      collItems = await apiFetch('/api/collection-priority?limit=40');
+      renderCollection();
+    }
+  } catch(e) { showErr(e.message); }
+}
+
+// ══════════════════════════════════════════════════════
+// ACTIVITY FEED
+// ══════════════════════════════════════════════════════
+async function loadActivityFeed() {
+  try {
+    const items = await apiFetch('/api/activity-feed?limit=12');
+    const el = document.getElementById('activity-feed');
+    if (!items.length) {
+      el.innerHTML = '<div style="padding:12px 0;text-align:center;color:var(--text3);font-size:11px">ยังไม่มีกิจกรรม</div>';
+      return;
+    }
+    el.innerHTML = items.map(a => {
+      const rd = resultDef[a.result] || {col:'#94a3b8', label: a.result};
+      return `<div class="af-item">
+        <div class="af-dot" style="background:${rd.col}"></div>
+        <div style="flex:1;min-width:0">
+          <div style="display:flex;align-items:center;gap:4px">
+            <div class="af-name">${a.customerName}</div>
+            <div class="af-result" style="border-color:${rd.col};color:${rd.col};background:${rd.col}15">${rd.label}</div>
+          </div>
+          <div class="af-sub">${actionIcon[a.actionType]||''} ${a.dealerName}${a.notes ? ' · '+a.notes : ''}</div>
+          <div class="af-meta">${a.createdBy} · ${a.createdAt} · DPD ${a.dpd}d</div>
+        </div>
+      </div>`;
+    }).join('');
+  } catch(e) { /* silent */ }
+}
+
+// ══════════════════════════════════════════════════════
+// TARGETS
+// ══════════════════════════════════════════════════════
+function renderTargetOverall() {
+  const tgt = targets['overall'];
+  if (!tgt || !summary.nplRate) return;
+  const row = document.getElementById('tgt-overall-row');
+  if (!row) return;
+  row.style.display = 'flex';
+  const badge = document.getElementById('tgt-overall-badge');
+  badge.textContent = tgt.targetRate.toFixed(2) + '%';
+  const diff = summary.nplRate - tgt.targetRate;
+  const status = document.getElementById('tgt-overall-status');
+  if (diff > 0) {
+    badge.style.borderColor = '#dc2626';
+    badge.style.color = '#dc2626';
+    badge.style.background = 'rgba(220,38,38,.07)';
+    status.innerHTML = `<span style="color:#dc2626">▲ เกินเป้า ${diff.toFixed(2)}%</span>`;
+  } else {
+    badge.style.borderColor = '#16a34a';
+    badge.style.color = '#16a34a';
+    badge.style.background = 'rgba(22,163,74,.07)';
+    status.innerHTML = `<span style="color:#16a34a">✓ ต่ำกว่าเป้า ${Math.abs(diff).toFixed(2)}%</span>`;
+  }
+  const inp = document.getElementById('tgt-inp-overall');
+  if (inp) inp.value = tgt.targetRate;
+}
+
+let tgtEditOpen = false;
+function toggleTargetEdit() {
+  tgtEditOpen = !tgtEditOpen;
+  const el = document.getElementById('tgt-overall-edit');
+  if (el) el.style.display = tgtEditOpen ? 'flex' : 'none';
+}
+
+async function saveTarget(key) {
+  const val = parseFloat(document.getElementById(`tgt-inp-${key}`).value);
+  if (!val || val <= 0 || val > 100) { showErr('กรุณาระบุเป้าหมายระหว่าง 0.1–100'); return; }
+  try {
+    await fetch(`${API}/api/targets/${key}`, {
+      method: 'PUT',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({targetRate: val})
+    });
+    const tgt = await apiFetch('/api/targets');
+    targets = {};
+    (tgt||[]).forEach(t => targets[t.key] = t);
+    renderTargetOverall();
+    tgtEditOpen = false;
+    const el = document.getElementById('tgt-overall-edit');
+    if (el) el.style.display = 'none';
+  } catch(e) { showErr(e.message); }
+}
+
+// ══════════════════════════════════════════════════════
+// EXPORT
+// ══════════════════════════════════════════════════════
+function exportCollection() {
+  window.open(`${API}/api/export/collection`, '_blank');
+}
+function exportDealers() {
+  window.open(`${API}/api/export/dealers`, '_blank');
+}
+
+// ══════════════════════════════════════════════════════
 // CLOCK + INIT
 // ══════════════════════════════════════════════════════
 setInterval(() => {
@@ -936,8 +1219,9 @@ setInterval(() => {
     new Date().toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
 }, 1000);
 
-connectSSE();
 loadAll();
+connectSSE();
+loadActivityFeed();
 setInterval(loadAll, REFRESH_MS);
 </script>
 </body>

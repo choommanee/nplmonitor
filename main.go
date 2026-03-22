@@ -67,6 +67,13 @@ func main() {
 	api.Put("/loans/:id",            handleUpdateLoan)
 	api.Post("/loans",               handleCreateLoan)
 	api.Get("/collection-priority",  handleCollectionPriority)
+	api.Get("/loans/:id/logs",       handleGetLoanLogs)
+	api.Post("/loans/:id/logs",      handleCreateLoanLog)
+	api.Get("/activity-feed",        handleActivityFeed)
+	api.Get("/targets",              handleGetTargets)
+	api.Put("/targets/:key",         handleSetTarget)
+	api.Get("/export/collection",    handleExportCollection)
+	api.Get("/export/dealers",       handleExportDealers)
 
 	// Serve frontend (index.html) from current directory
 	app.Static("/", ".", fiber.Static{Index: "index.html"})
