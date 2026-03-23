@@ -221,6 +221,12 @@ html,body{height:100%;overflow:hidden;font-family:'IBM Plex Sans Thai',sans-seri
 .im-result.err{background:rgba(220,38,38,.08);border:1px solid rgba(220,38,38,.3);color:var(--hi)}
 .import-btn{padding:4px 11px;background:rgba(2,132,199,.07);border:1px solid rgba(2,132,199,.3);color:var(--cyan);border-radius:5px;font-size:11px;cursor:pointer;font-family:'IBM Plex Mono',monospace;flex-shrink:0;transition:all .15s}
 .import-btn:hover{background:rgba(2,132,199,.15);border-color:var(--cyan)}
+.im-mode-btn{padding:10px 6px;border-radius:6px;border:1px solid var(--border);background:var(--c2);color:var(--text2);cursor:pointer;transition:all .15s;text-align:center;font-family:'IBM Plex Sans Thai',sans-serif}
+.im-mode-btn:hover{border-color:var(--cyan);color:var(--cyan)}
+.im-mode-btn.on[data-mode="upsert"]{border-color:var(--cyan);color:var(--cyan);background:rgba(2,132,199,.1)}
+.im-mode-btn.on[data-mode="insert"]{border-color:var(--lo);color:var(--lo);background:rgba(22,163,74,.1)}
+.im-mode-btn.on[data-mode="merge"]{border-color:var(--mi);color:var(--mi);background:rgba(217,119,6,.1)}
+.im-mode-btn.on[data-mode="delete"]{border-color:var(--hi);color:var(--hi);background:rgba(220,38,38,.1)}
 
 /* Target indicators */
 .tgt-row{display:flex;align-items:center;gap:6px;margin-top:5px;font-size:10px}
@@ -616,16 +622,46 @@ html,body{height:100%;overflow:hidden;font-family:'IBM Plex Sans Thai',sans-seri
       <button class="im-tab"   onclick="setImportTab('loans',this)">Loans</button>
     </div>
     <div class="im-body">
+      <!-- Mode selector -->
+      <div style="margin-bottom:12px">
+        <div style="font-size:9px;color:var(--text3);letter-spacing:1.2px;text-transform:uppercase;margin-bottom:6px">Import Mode</div>
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px" id="im-mode-grid">
+          <button class="im-mode-btn on" data-mode="upsert" onclick="setImportMode('upsert',this)">
+            <div style="font-size:13px;margin-bottom:3px">↕</div>
+            <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600">UPSERT</div>
+            <div style="font-size:9px;margin-top:2px;color:inherit;opacity:.8">เพิ่ม+อัปเดต</div>
+          </button>
+          <button class="im-mode-btn" data-mode="insert" onclick="setImportMode('insert',this)">
+            <div style="font-size:13px;margin-bottom:3px">+</div>
+            <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600">INSERT</div>
+            <div style="font-size:9px;margin-top:2px;color:inherit;opacity:.8">เพิ่มใหม่เท่านั้น</div>
+          </button>
+          <button class="im-mode-btn" data-mode="merge" onclick="setImportMode('merge',this)">
+            <div style="font-size:13px;margin-bottom:3px">✎</div>
+            <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600">MERGE</div>
+            <div style="font-size:9px;margin-top:2px;color:inherit;opacity:.8">อัปเดตที่มีอยู่</div>
+          </button>
+          <button class="im-mode-btn" data-mode="delete" onclick="setImportMode('delete',this)">
+            <div style="font-size:13px;margin-bottom:3px">✕</div>
+            <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600">DELETE</div>
+            <div style="font-size:9px;margin-top:2px;color:inherit;opacity:.8">ลบตาม ID</div>
+          </button>
+        </div>
+        <div id="im-mode-desc" style="margin-top:8px;padding:7px 10px;background:var(--c2);border-radius:5px;font-size:11px;color:var(--text2);border-left:3px solid var(--cyan)"></div>
+      </div>
+      <!-- Hint + Template -->
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
-        <div style="font-size:11px;color:var(--text2)" id="im-hint">อัปโหลดไฟล์ CSV เพื่อนำเข้าข้อมูล Dealer</div>
+        <div style="font-size:11px;color:var(--text2)" id="im-hint"></div>
         <button onclick="downloadTemplate()" style="padding:4px 11px;background:rgba(22,163,74,.07);border:1px solid rgba(22,163,74,.3);color:var(--lo);border-radius:5px;font-size:10px;cursor:pointer;font-family:'IBM Plex Mono',monospace">↓ Template CSV</button>
       </div>
+      <!-- Drop zone -->
       <div class="im-drop" id="im-drop" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)" ondrop="handleDrop(event)">
         <input type="file" id="im-file" accept=".csv" onchange="handleFileSelect(event)">
         <div style="font-size:28px;margin-bottom:8px">📂</div>
         <div style="font-size:13px;color:var(--text2);margin-bottom:4px">ลากไฟล์ CSV มาวางที่นี่ หรือคลิกเพื่อเลือกไฟล์</div>
         <div style="font-size:10px;color:var(--text3)" id="im-filename">รองรับ: .csv (UTF-8)</div>
       </div>
+      <!-- Preview -->
       <div id="im-preview-wrap" style="display:none">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
           <div style="font-size:11px;color:var(--text2)">ตัวอย่างข้อมูล (แสดงสูงสุด 20 แถวแรก)</div>
@@ -636,9 +672,7 @@ html,body{height:100%;overflow:hidden;font-family:'IBM Plex Sans Thai',sans-seri
       <div id="im-result" style="display:none"></div>
     </div>
     <div class="im-foot">
-      <div style="font-size:10px;color:var(--text3)">
-        หมายเหตุ: dealer_id / customer_id / loan_id ที่มีอยู่แล้วจะถูก <strong>อัปเดต</strong>, ค่าว่างจะถูกสร้างใหม่
-      </div>
+      <div style="font-size:10px;color:var(--text3)" id="im-foot-note"></div>
       <div style="display:flex;gap:8px">
         <button onclick="closeImport()" style="padding:7px 16px;border-radius:5px;border:1px solid var(--border);background:transparent;color:var(--text2);cursor:pointer;font-size:12px">ยกเลิก</button>
         <button onclick="submitImport()" id="im-submit-btn" disabled style="padding:7px 20px;border-radius:5px;border:none;background:var(--cyan);color:#fff;cursor:pointer;font-size:12px;font-weight:500;opacity:.5">นำเข้าข้อมูล</button>
@@ -1531,18 +1565,35 @@ setInterval(loadAll, REFRESH_MS);
 // ══════════════════════════════════════════════════════
 // IMPORT MODAL
 // ══════════════════════════════════════════════════════
-let importTab = 'dealers';
+let importTab  = 'dealers';
+let importMode = 'upsert';
 let importFile = null;
 
 const importHints = {
-  dealers:   'อัปโหลดไฟล์ CSV เพื่อนำเข้าข้อมูล Dealer (คอลัมน์บังคับ: dealer_name)',
-  customers: 'อัปโหลดไฟล์ CSV เพื่อนำเข้าข้อมูล ลูกค้า (คอลัมน์บังคับ: full_name)',
-  loans:     'อัปโหลดไฟล์ CSV เพื่อนำเข้าข้อมูล สินเชื่อ (คอลัมน์บังคับ: dealer_id, principal_amount, customer_name)',
+  dealers:   { upsert:'บังคับ: dealer_name', insert:'บังคับ: dealer_name', merge:'บังคับ: dealer_id (อัปเดตเฉพาะที่มีอยู่)', delete:'บังคับ: dealer_id (ลบตาม ID)' },
+  customers: { upsert:'บังคับ: full_name', insert:'บังคับ: full_name', merge:'บังคับ: customer_id', delete:'บังคับ: customer_id' },
+  loans:     { upsert:'บังคับ: dealer_id, principal_amount, customer_name', insert:'บังคับ: dealer_id, principal_amount, customer_name', merge:'บังคับ: loan_id (อัปเดต outstanding/dpd/status)', delete:'บังคับ: loan_id' },
+};
+
+const modeDescs = {
+  upsert: 'เพิ่มรายการใหม่ และอัปเดตรายการที่มีอยู่แล้ว (ตาม ID) — ไม่มีการลบ',
+  insert: 'เพิ่มรายการใหม่เท่านั้น — ข้ามแถวที่มี ID ซ้ำ ไม่อัปเดตข้อมูลเดิม',
+  merge:  'อัปเดตรายการที่มีอยู่เท่านั้น (ต้องระบุ ID) — ไม่เพิ่มรายการใหม่',
+  delete: 'ลบรายการตาม ID ในไฟล์ CSV — ข้อมูลที่ลบแล้วไม่สามารถกู้คืนได้',
+};
+
+const modeFootNotes = {
+  upsert: 'ID ที่มีอยู่แล้วจะถูก <strong>อัปเดต</strong>, ID ว่างจะถูกสร้างใหม่อัตโนมัติ',
+  insert: 'ID ที่มีอยู่แล้วจะถูก <strong>ข้าม</strong>, ID ว่างจะถูกสร้างใหม่',
+  merge:  'เฉพาะ ID ที่ระบุและมีอยู่ในระบบเท่านั้นที่จะถูก <strong>อัปเดต</strong>',
+  delete: '<span style="color:var(--hi)">⚠ การลบข้อมูลไม่สามารถยกเลิกได้</span> — ตรวจสอบ Preview ก่อนยืนยัน',
 };
 
 function openImport() {
   document.getElementById('import-modal').style.display = 'block';
+  setImportMode('upsert', document.querySelector('.im-mode-btn[data-mode="upsert"]'));
   resetImportState();
+  updateImportHint();
 }
 
 function closeImport() {
@@ -1552,7 +1603,8 @@ function closeImport() {
 
 function resetImportState() {
   importFile = null;
-  document.getElementById('im-file').value = '';
+  const fi = document.getElementById('im-file');
+  if (fi) fi.value = '';
   document.getElementById('im-filename').textContent = 'รองรับ: .csv (UTF-8)';
   document.getElementById('im-preview-wrap').style.display = 'none';
   document.getElementById('im-result').style.display = 'none';
@@ -1560,13 +1612,35 @@ function resetImportState() {
   const btn = document.getElementById('im-submit-btn');
   btn.disabled = true;
   btn.style.opacity = '.5';
+  updateImportHint();
+}
+
+function updateImportHint() {
+  const hint = (importHints[importTab] || {})[importMode] || '';
+  document.getElementById('im-hint').textContent = hint;
+  document.getElementById('im-mode-desc').innerHTML = modeDescs[importMode] || '';
+  document.getElementById('im-foot-note').innerHTML = modeFootNotes[importMode] || '';
+  // update submit button color for delete mode
+  const btn = document.getElementById('im-submit-btn');
+  btn.style.background = importMode === 'delete' ? 'var(--hi)' : 'var(--cyan)';
+  btn.textContent = importMode === 'delete' ? 'ลบข้อมูล' : 'นำเข้าข้อมูล';
 }
 
 function setImportTab(tab, el) {
   importTab = tab;
   document.querySelectorAll('.im-tab').forEach(t => t.classList.remove('on'));
   el.classList.add('on');
-  document.getElementById('im-hint').textContent = importHints[tab] || '';
+  resetImportState();
+}
+
+function setImportMode(mode, el) {
+  importMode = mode;
+  document.querySelectorAll('.im-mode-btn').forEach(b => b.classList.remove('on'));
+  if (el) el.classList.add('on');
+  // update mode desc border color
+  const desc = document.getElementById('im-mode-desc');
+  const borderColors = { upsert:'var(--cyan)', insert:'var(--lo)', merge:'var(--mi)', delete:'var(--hi)' };
+  desc.style.borderLeftColor = borderColors[mode] || 'var(--cyan)';
   resetImportState();
 }
 
@@ -1597,11 +1671,10 @@ async function processImportFile(file) {
   document.getElementById('im-filename').textContent = file.name + ' (' + (file.size/1024).toFixed(1) + ' KB)';
   document.getElementById('im-result').style.display = 'none';
 
-  // Call validate endpoint
   try {
     const fd = new FormData();
     fd.append('file', file);
-    const res = await fetch(API + '/api/import/validate/' + importTab, { method: 'POST', body: fd });
+    const res = await fetch(API + `/api/import/validate/${importTab}?mode=${importMode}`, { method: 'POST', body: fd });
     const data = await res.json();
     renderPreview(data);
     const btn = document.getElementById('im-submit-btn');
@@ -1617,7 +1690,7 @@ function renderPreview(data) {
   wrap.style.display = 'block';
   const total = data.totalRows || 0;
   const shown = (data.preview || []).length;
-  document.getElementById('im-row-count').textContent = `แสดง ${shown} / ${total} แถว`;
+  document.getElementById('im-row-count').textContent = `แสดง ${shown} / ${total} แถว · mode: ${(data.mode||importMode).toUpperCase()}`;
 
   if (!data.headers || !data.preview) {
     document.getElementById('im-preview-table').innerHTML = '<div style="padding:12px;color:var(--text3);font-size:11px">ไม่มีข้อมูล</div>';
@@ -1630,7 +1703,8 @@ function renderPreview(data) {
     const hasIssue = row.issues && row.issues.length > 0;
     html += `<tr class="${hasIssue ? 'has-issue' : ''}">`;
     for (const h of hdrs) {
-      html += `<td title="${(row.data[h]||'').replace(/"/g,'&quot;')}">${row.data[h] || '<span style="color:var(--text3)">—</span>'}</td>`;
+      const v = row.data[h] || '';
+      html += `<td title="${v.replace(/"/g,'&quot;')}">${v || '<span style="color:var(--text3)">—</span>'}</td>`;
     }
     html += `<td class="issue-cell">${hasIssue ? row.issues.join(', ') : ''}</td></tr>`;
   }
@@ -1640,15 +1714,18 @@ function renderPreview(data) {
 
 async function submitImport() {
   if (!importFile) return;
+  if (importMode === 'delete') {
+    if (!confirm(`ยืนยันการลบข้อมูล ${importTab} ตาม ID ในไฟล์นี้?\nการลบไม่สามารถยกเลิกได้`)) return;
+  }
   const btn = document.getElementById('im-submit-btn');
   btn.disabled = true;
-  btn.textContent = 'กำลังนำเข้า...';
+  btn.textContent = importMode === 'delete' ? 'กำลังลบ...' : 'กำลังนำเข้า...';
   btn.style.opacity = '.7';
 
   try {
     const fd = new FormData();
     fd.append('file', importFile);
-    const res = await fetch(API + '/api/import/' + importTab, { method: 'POST', body: fd });
+    const res = await fetch(API + `/api/import/${importTab}?mode=${importMode}`, { method: 'POST', body: fd });
     const data = await res.json();
 
     const resultEl = document.getElementById('im-result');
@@ -1658,17 +1735,23 @@ async function submitImport() {
       resultEl.innerHTML = `<strong>เกิดข้อผิดพลาด:</strong> ${data.error}`;
     } else {
       const hasErrors = data.errors && data.errors.length > 0;
-      resultEl.className = 'im-result ' + (hasErrors ? 'err' : 'ok');
-      let msg = `<strong>นำเข้าสำเร็จ ${data.imported} รายการ</strong>`;
+      const isOk = !hasErrors || data.imported > 0 || data.deleted > 0;
+      resultEl.className = 'im-result ' + (isOk ? 'ok' : 'err');
+
+      let msg = '';
+      if (importMode === 'delete') {
+        msg = `<strong>ลบสำเร็จ ${data.deleted} รายการ</strong>`;
+      } else {
+        msg = `<strong>${importMode === 'merge' ? 'อัปเดต' : 'นำเข้า'}สำเร็จ ${data.imported} รายการ</strong>`;
+      }
       if (data.skipped > 0) msg += ` · ข้าม ${data.skipped} รายการ`;
       if (hasErrors) {
-        msg += '<br><br><strong>ข้อผิดพลาด:</strong><ul style="margin:4px 0 0 14px">' +
+        msg += '<br><br><strong>ข้อผิดพลาด / คำเตือน:</strong><ul style="margin:4px 0 0 14px">' +
           data.errors.slice(0,10).map(e => `<li>${e}</li>`).join('') + '</ul>';
-        if (data.errors.length > 10) msg += `<div style="margin-top:4px">...และอีก ${data.errors.length - 10} ข้อผิดพลาด</div>`;
+        if (data.errors.length > 10) msg += `<div style="margin-top:4px;font-size:9px">...และอีก ${data.errors.length-10} รายการ</div>`;
       }
       resultEl.innerHTML = msg;
-      if (data.imported > 0) {
-        // refresh dashboard data
+      if (data.imported > 0 || data.deleted > 0) {
         setTimeout(loadAll, 500);
       }
     }
@@ -1680,7 +1763,7 @@ async function submitImport() {
   }
 
   btn.disabled = false;
-  btn.textContent = 'นำเข้าข้อมูล';
+  btn.textContent = importMode === 'delete' ? 'ลบข้อมูล' : 'นำเข้าข้อมูล';
   btn.style.opacity = '1';
 }
 
@@ -1688,7 +1771,6 @@ function downloadTemplate() {
   window.open(API + '/api/import/template/' + importTab, '_blank');
 }
 
-// Close import modal on backdrop click
 document.getElementById('import-modal').addEventListener('click', function(e) {
   if (e.target === this) closeImport();
 });
