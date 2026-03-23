@@ -1,0 +1,30 @@
+[
+  {
+    "dealer_id": "D001",
+    "customer_name": "นายสมชาย ใจดี",
+    "principal_amount": 500000,
+    "outstanding_balance": 480000,
+    "loan_type": "เช่าซื้อ",
+    "dpd": 15,
+    "status": "ACTIVE",
+    "contract_date": "2024-01-15"
+  },
+  {
+    "dealer_id": "D001",
+    "customer_name": "นางสาวสมหญิง รักดี",
+    "principal_amount": 300000,
+    "outstanding_balance": 300000,
+    "loan_type": "Personal",
+    "dpd": 95,
+    "status": "ACTIVE",
+    "contract_date": "2023-06-01"
+  },
+  {
+    "dealer_id": "D002",
+    "customer_name": "นายวิชัย มั่งมี",
+    "principal_amount": 750000,
+    "loan_type": "เช่าซื้อ",
+    "dpd": 0,
+    "status": "ACTIVE"
+  }
+]

@@ -49,6 +49,7 @@ func main() {
 	app.Use(logger.New())
 	app.Use(cors.New(cors.Config{
 		AllowOrigins: "*",
+		AllowMethods: "GET,POST,PUT,DELETE,OPTIONS",
 		AllowHeaders: "Origin, Content-Type, Accept",
 	}))
 
@@ -74,6 +75,12 @@ func main() {
 	api.Put("/targets/:key",         handleSetTarget)
 	api.Get("/export/collection",    handleExportCollection)
 	api.Get("/export/dealers",       handleExportDealers)
+	// Import routes
+	api.Post("/import/dealers",      handleImportDealers)
+	api.Post("/import/customers",    handleImportCustomers)
+	api.Post("/import/loans",        handleImportLoans)
+	api.Get("/import/template/:type", handleImportTemplate)
+	api.Post("/import/validate/:type", handleImportValidate)
 
 	// Serve frontend (index.html) from current directory
 	app.Static("/", ".", fiber.Static{Index: "index.html"})

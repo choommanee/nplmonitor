@@ -198,6 +198,30 @@ html,body{height:100%;overflow:hidden;font-family:'IBM Plex Sans Thai',sans-seri
 .af-sub{font-size:10px;color:var(--text2);margin-top:1px}
 .af-meta{font-size:9px;color:var(--text3);margin-top:2px;font-family:'IBM Plex Mono',monospace}
 .af-result{display:inline-block;padding:1px 5px;border-radius:3px;font-size:9px;font-weight:600;border:1px solid;font-family:'IBM Plex Mono',monospace;margin-left:4px}
+/* Import modal */
+#import-modal{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:10000;display:none;overflow-y:auto;padding:28px 16px}
+.im-wrap{max-width:760px;margin:0 auto;background:var(--c1);border:1px solid var(--border);border-radius:12px;overflow:hidden}
+.im-hd{padding:13px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.im-tabs{display:flex;gap:6px;padding:10px 18px;border-bottom:1px solid var(--border);background:var(--c2)}
+.im-tab{padding:4px 14px;border-radius:4px;border:1px solid var(--border);color:var(--text2);font-size:11px;cursor:pointer;font-family:'IBM Plex Mono',monospace;transition:all .15s}
+.im-tab.on{border-color:var(--cyan);color:var(--cyan);background:rgba(2,132,199,.07)}
+.im-body{padding:16px 18px}
+.im-drop{border:2px dashed var(--border);border-radius:8px;padding:28px;text-align:center;cursor:pointer;transition:border-color .2s;margin-bottom:12px;position:relative}
+.im-drop:hover,.im-drop.drag-over{border-color:var(--cyan);background:rgba(2,132,199,.04)}
+.im-drop input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
+.im-preview{margin-top:12px;overflow-x:auto;max-height:280px;overflow-y:auto;border:1px solid var(--border);border-radius:6px}
+.im-preview table{width:100%;border-collapse:collapse;font-size:11px}
+.im-preview th{background:var(--c2);padding:5px 8px;text-align:left;border-bottom:1px solid var(--border);font-size:9px;letter-spacing:.8px;text-transform:uppercase;color:var(--text3);position:sticky;top:0;white-space:nowrap}
+.im-preview td{padding:5px 8px;border-bottom:1px solid rgba(0,0,0,.04);font-family:'IBM Plex Mono',monospace;white-space:nowrap;max-width:180px;overflow:hidden;text-overflow:ellipsis}
+.im-preview tr.has-issue td{background:rgba(220,38,38,.05)}
+.im-preview .issue-cell{color:var(--hi);font-size:9px;font-family:'IBM Plex Sans Thai',sans-serif}
+.im-foot{padding:12px 18px;border-top:1px solid var(--border);display:flex;gap:8px;justify-content:space-between;align-items:center}
+.im-result{font-size:11px;padding:8px 12px;border-radius:6px;margin-top:10px}
+.im-result.ok{background:rgba(22,163,74,.08);border:1px solid rgba(22,163,74,.3);color:var(--lo)}
+.im-result.err{background:rgba(220,38,38,.08);border:1px solid rgba(220,38,38,.3);color:var(--hi)}
+.import-btn{padding:4px 11px;background:rgba(2,132,199,.07);border:1px solid rgba(2,132,199,.3);color:var(--cyan);border-radius:5px;font-size:11px;cursor:pointer;font-family:'IBM Plex Mono',monospace;flex-shrink:0;transition:all .15s}
+.import-btn:hover{background:rgba(2,132,199,.15);border-color:var(--cyan)}
+
 /* Target indicators */
 .tgt-row{display:flex;align-items:center;gap:6px;margin-top:5px;font-size:10px}
 .tgt-badge{font-size:9px;padding:2px 6px;border-radius:3px;font-family:'IBM Plex Mono',monospace;font-weight:600;border:1px solid}
@@ -298,6 +322,7 @@ html,body{height:100%;overflow:hidden;font-family:'IBM Plex Sans Thai',sans-seri
   <div id="clock">--:--:--</div>
   <button class="coll-btn" onclick="openCollection()">⚡ Collection Queue</button>
   <button class="edit-btn" onclick="openEdit()">✎ แก้ไข NPL</button>
+  <button class="import-btn" onclick="openImport()">↑ นำเข้าข้อมูล</button>
 </header>
 
 <!-- LEFT PANEL -->
@@ -574,6 +599,50 @@ html,body{height:100%;overflow:hidden;font-family:'IBM Plex Sans Thai',sans-seri
     <div class="lm-foot">
       <button onclick="closeLogModal()" style="padding:7px 16px;border-radius:5px;border:1px solid var(--border);background:transparent;color:var(--text2);cursor:pointer;font-size:12px">ยกเลิก</button>
       <button onclick="submitLog()" style="padding:7px 18px;border-radius:5px;border:none;background:var(--cyan);color:#fff;cursor:pointer;font-size:12px;font-weight:500">💾 บันทึก</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Import Modal ──────────────────────────────────────────── -->
+<div id="import-modal">
+  <div class="im-wrap">
+    <div class="im-hd">
+      <div style="font-family:'IBM Plex Mono',monospace;font-size:13px;color:var(--cyan)">↑ นำเข้าข้อมูล (CSV Import)</div>
+      <button onclick="closeImport()" style="background:none;border:none;color:var(--text2);cursor:pointer;font-size:20px;line-height:1;padding:0 4px">×</button>
+    </div>
+    <div class="im-tabs">
+      <button class="im-tab on" onclick="setImportTab('dealers',this)">Dealers</button>
+      <button class="im-tab"   onclick="setImportTab('customers',this)">Customers</button>
+      <button class="im-tab"   onclick="setImportTab('loans',this)">Loans</button>
+    </div>
+    <div class="im-body">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+        <div style="font-size:11px;color:var(--text2)" id="im-hint">อัปโหลดไฟล์ CSV เพื่อนำเข้าข้อมูล Dealer</div>
+        <button onclick="downloadTemplate()" style="padding:4px 11px;background:rgba(22,163,74,.07);border:1px solid rgba(22,163,74,.3);color:var(--lo);border-radius:5px;font-size:10px;cursor:pointer;font-family:'IBM Plex Mono',monospace">↓ Template CSV</button>
+      </div>
+      <div class="im-drop" id="im-drop" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)" ondrop="handleDrop(event)">
+        <input type="file" id="im-file" accept=".csv" onchange="handleFileSelect(event)">
+        <div style="font-size:28px;margin-bottom:8px">📂</div>
+        <div style="font-size:13px;color:var(--text2);margin-bottom:4px">ลากไฟล์ CSV มาวางที่นี่ หรือคลิกเพื่อเลือกไฟล์</div>
+        <div style="font-size:10px;color:var(--text3)" id="im-filename">รองรับ: .csv (UTF-8)</div>
+      </div>
+      <div id="im-preview-wrap" style="display:none">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+          <div style="font-size:11px;color:var(--text2)">ตัวอย่างข้อมูล (แสดงสูงสุด 20 แถวแรก)</div>
+          <div style="font-size:10px;color:var(--text3);font-family:'IBM Plex Mono',monospace" id="im-row-count"></div>
+        </div>
+        <div class="im-preview" id="im-preview-table"></div>
+      </div>
+      <div id="im-result" style="display:none"></div>
+    </div>
+    <div class="im-foot">
+      <div style="font-size:10px;color:var(--text3)">
+        หมายเหตุ: dealer_id / customer_id / loan_id ที่มีอยู่แล้วจะถูก <strong>อัปเดต</strong>, ค่าว่างจะถูกสร้างใหม่
+      </div>
+      <div style="display:flex;gap:8px">
+        <button onclick="closeImport()" style="padding:7px 16px;border-radius:5px;border:1px solid var(--border);background:transparent;color:var(--text2);cursor:pointer;font-size:12px">ยกเลิก</button>
+        <button onclick="submitImport()" id="im-submit-btn" disabled style="padding:7px 20px;border-radius:5px;border:none;background:var(--cyan);color:#fff;cursor:pointer;font-size:12px;font-weight:500;opacity:.5">นำเข้าข้อมูล</button>
+      </div>
     </div>
   </div>
 </div>
@@ -1458,6 +1527,171 @@ loadAll();
 connectSSE();
 loadActivityFeed();
 setInterval(loadAll, REFRESH_MS);
+
+// ══════════════════════════════════════════════════════
+// IMPORT MODAL
+// ══════════════════════════════════════════════════════
+let importTab = 'dealers';
+let importFile = null;
+
+const importHints = {
+  dealers:   'อัปโหลดไฟล์ CSV เพื่อนำเข้าข้อมูล Dealer (คอลัมน์บังคับ: dealer_name)',
+  customers: 'อัปโหลดไฟล์ CSV เพื่อนำเข้าข้อมูล ลูกค้า (คอลัมน์บังคับ: full_name)',
+  loans:     'อัปโหลดไฟล์ CSV เพื่อนำเข้าข้อมูล สินเชื่อ (คอลัมน์บังคับ: dealer_id, principal_amount, customer_name)',
+};
+
+function openImport() {
+  document.getElementById('import-modal').style.display = 'block';
+  resetImportState();
+}
+
+function closeImport() {
+  document.getElementById('import-modal').style.display = 'none';
+  resetImportState();
+}
+
+function resetImportState() {
+  importFile = null;
+  document.getElementById('im-file').value = '';
+  document.getElementById('im-filename').textContent = 'รองรับ: .csv (UTF-8)';
+  document.getElementById('im-preview-wrap').style.display = 'none';
+  document.getElementById('im-result').style.display = 'none';
+  document.getElementById('im-result').innerHTML = '';
+  const btn = document.getElementById('im-submit-btn');
+  btn.disabled = true;
+  btn.style.opacity = '.5';
+}
+
+function setImportTab(tab, el) {
+  importTab = tab;
+  document.querySelectorAll('.im-tab').forEach(t => t.classList.remove('on'));
+  el.classList.add('on');
+  document.getElementById('im-hint').textContent = importHints[tab] || '';
+  resetImportState();
+}
+
+function handleDragOver(e) {
+  e.preventDefault();
+  document.getElementById('im-drop').classList.add('drag-over');
+}
+function handleDragLeave(e) {
+  document.getElementById('im-drop').classList.remove('drag-over');
+}
+function handleDrop(e) {
+  e.preventDefault();
+  document.getElementById('im-drop').classList.remove('drag-over');
+  const file = e.dataTransfer.files[0];
+  if (file) processImportFile(file);
+}
+function handleFileSelect(e) {
+  const file = e.target.files[0];
+  if (file) processImportFile(file);
+}
+
+async function processImportFile(file) {
+  if (!file.name.endsWith('.csv')) {
+    showErr('รองรับเฉพาะไฟล์ .csv เท่านั้น');
+    return;
+  }
+  importFile = file;
+  document.getElementById('im-filename').textContent = file.name + ' (' + (file.size/1024).toFixed(1) + ' KB)';
+  document.getElementById('im-result').style.display = 'none';
+
+  // Call validate endpoint
+  try {
+    const fd = new FormData();
+    fd.append('file', file);
+    const res = await fetch(API + '/api/import/validate/' + importTab, { method: 'POST', body: fd });
+    const data = await res.json();
+    renderPreview(data);
+    const btn = document.getElementById('im-submit-btn');
+    btn.disabled = false;
+    btn.style.opacity = '1';
+  } catch(e) {
+    showErr('ไม่สามารถโหลดตัวอย่างข้อมูล: ' + e.message);
+  }
+}
+
+function renderPreview(data) {
+  const wrap = document.getElementById('im-preview-wrap');
+  wrap.style.display = 'block';
+  const total = data.totalRows || 0;
+  const shown = (data.preview || []).length;
+  document.getElementById('im-row-count').textContent = `แสดง ${shown} / ${total} แถว`;
+
+  if (!data.headers || !data.preview) {
+    document.getElementById('im-preview-table').innerHTML = '<div style="padding:12px;color:var(--text3);font-size:11px">ไม่มีข้อมูล</div>';
+    return;
+  }
+
+  const hdrs = data.headers;
+  let html = '<table><thead><tr>' + hdrs.map(h => `<th>${h}</th>`).join('') + '<th>ปัญหา</th></tr></thead><tbody>';
+  for (const row of data.preview) {
+    const hasIssue = row.issues && row.issues.length > 0;
+    html += `<tr class="${hasIssue ? 'has-issue' : ''}">`;
+    for (const h of hdrs) {
+      html += `<td title="${(row.data[h]||'').replace(/"/g,'&quot;')}">${row.data[h] || '<span style="color:var(--text3)">—</span>'}</td>`;
+    }
+    html += `<td class="issue-cell">${hasIssue ? row.issues.join(', ') : ''}</td></tr>`;
+  }
+  html += '</tbody></table>';
+  document.getElementById('im-preview-table').innerHTML = html;
+}
+
+async function submitImport() {
+  if (!importFile) return;
+  const btn = document.getElementById('im-submit-btn');
+  btn.disabled = true;
+  btn.textContent = 'กำลังนำเข้า...';
+  btn.style.opacity = '.7';
+
+  try {
+    const fd = new FormData();
+    fd.append('file', importFile);
+    const res = await fetch(API + '/api/import/' + importTab, { method: 'POST', body: fd });
+    const data = await res.json();
+
+    const resultEl = document.getElementById('im-result');
+    resultEl.style.display = 'block';
+    if (data.error) {
+      resultEl.className = 'im-result err';
+      resultEl.innerHTML = `<strong>เกิดข้อผิดพลาด:</strong> ${data.error}`;
+    } else {
+      const hasErrors = data.errors && data.errors.length > 0;
+      resultEl.className = 'im-result ' + (hasErrors ? 'err' : 'ok');
+      let msg = `<strong>นำเข้าสำเร็จ ${data.imported} รายการ</strong>`;
+      if (data.skipped > 0) msg += ` · ข้าม ${data.skipped} รายการ`;
+      if (hasErrors) {
+        msg += '<br><br><strong>ข้อผิดพลาด:</strong><ul style="margin:4px 0 0 14px">' +
+          data.errors.slice(0,10).map(e => `<li>${e}</li>`).join('') + '</ul>';
+        if (data.errors.length > 10) msg += `<div style="margin-top:4px">...และอีก ${data.errors.length - 10} ข้อผิดพลาด</div>`;
+      }
+      resultEl.innerHTML = msg;
+      if (data.imported > 0) {
+        // refresh dashboard data
+        setTimeout(loadAll, 500);
+      }
+    }
+  } catch(e) {
+    const resultEl = document.getElementById('im-result');
+    resultEl.style.display = 'block';
+    resultEl.className = 'im-result err';
+    resultEl.innerHTML = '<strong>เกิดข้อผิดพลาด:</strong> ' + e.message;
+  }
+
+  btn.disabled = false;
+  btn.textContent = 'นำเข้าข้อมูล';
+  btn.style.opacity = '1';
+}
+
+function downloadTemplate() {
+  window.open(API + '/api/import/template/' + importTab, '_blank');
+}
+
+// Close import modal on backdrop click
+document.getElementById('import-modal').addEventListener('click', function(e) {
+  if (e.target === this) closeImport();
+});
 </script>
 </body>
 </html>
